@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, Stack } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,6 +10,15 @@ import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { CIRCUITS, type CircuitExercise } from "@/constants/circuits";
 import { speak, stopSpeech } from "@/utils/speech";
+import { PoseCameraView } from "@/components/camera/PoseCameraView";
+import { useAccelerometerMonitor } from "@/hooks/useAccelerometerMonitor";
+import { getCheckpointsForExercise } from "@/lib/pose/checkpointSchedule";
+import { validatePoseForExercise } from "@/lib/pose/exerciseValidators";
+import {
+  buildSessionValidationSummary,
+  type SessionValidationSummary,
+} from "@/lib/pose/sessionValidation";
+import type { PoseKeypoints, ScattoResult } from "@/lib/pose/types";
 
 type Phase = "intro" | "work" | "rest" | "done";
 
@@ -25,10 +34,103 @@ export default function SessionScreen() {
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>("intro");
   const [secondsLeft, setSecondsLeft] = useState(3);
+  const [validationSummary, setValidationSummary] =
+    useState<SessionValidationSummary | null>(null);
   const spokenRef = useRef<string>("");
 
   const current = exercises[index];
   const next = exercises[index + 1];
+
+  // --- Hybrid verification (camera "scatti" + accelerometer) ---
+  // See docs/architecture-plan.md section 4. Requires a native EAS dev build;
+  // react-native-vision-camera frame processors are unavailable in Expo Go.
+  const latestPoseRef = useRef<PoseKeypoints | null>(null);
+  const scattiResultsRef = useRef<ScattoResult[]>([]);
+  const capturedCheckpointsRef = useRef<Set<string>>(new Set());
+  const sessionAccelTotalsRef = useRef({ sampleCount: 0, coherentSampleCount: 0 });
+  const lastAccelStateRef = useRef({ sampleCount: 0, coherentSampleCount: 0 });
+
+  const checkpoints = useMemo(
+    () => (current ? getCheckpointsForExercise(current) : []),
+    [current],
+  );
+
+  const handlePose = useCallback((pose: PoseKeypoints) => {
+    latestPoseRef.current = pose;
+  }, []);
+
+  const accelState = useAccelerometerMonitor(
+    current?.category ?? null,
+    phase === "work",
+  );
+
+  // Accumulate accelerometer coherence across the whole session — the
+  // monitor hook itself resets its internal counters each time the
+  // exercise (and thus category) changes.
+  useEffect(() => {
+    const delta = {
+      sampleCount: accelState.sampleCount - lastAccelStateRef.current.sampleCount,
+      coherentSampleCount:
+        accelState.coherentSampleCount - lastAccelStateRef.current.coherentSampleCount,
+    };
+    if (delta.sampleCount > 0) {
+      sessionAccelTotalsRef.current.sampleCount += delta.sampleCount;
+      sessionAccelTotalsRef.current.coherentSampleCount += delta.coherentSampleCount;
+    }
+    lastAccelStateRef.current = {
+      sampleCount: accelState.sampleCount,
+      coherentSampleCount: accelState.coherentSampleCount,
+    };
+  }, [accelState.sampleCount, accelState.coherentSampleCount]);
+
+  useEffect(() => {
+    lastAccelStateRef.current = { sampleCount: 0, coherentSampleCount: 0 };
+  }, [index]);
+
+  // Trigger a camera "scatto" (single-frame pose validation) when the
+  // elapsed work time for the current exercise crosses a scheduled
+  // checkpoint instant.
+  useEffect(() => {
+    if (!current || phase !== "work") return;
+    const elapsed = current.workSeconds - secondsLeft;
+
+    for (const cp of checkpoints) {
+      const key = `${index}-${cp.label}`;
+      if (elapsed >= cp.atWorkSecond && !capturedCheckpointsRef.current.has(key)) {
+        capturedCheckpointsRef.current.add(key);
+        const pose = latestPoseRef.current;
+        if (pose) {
+          const result = validatePoseForExercise(pose, {
+            exerciseId: current.id,
+            category: current.category,
+            checkpointLabel: cp.label,
+            timestampMs: Date.now(),
+          });
+          scattiResultsRef.current.push(result);
+        } else {
+          scattiResultsRef.current.push({
+            exerciseId: current.id,
+            checkpointLabel: cp.label,
+            valid: false,
+            confidence: 0,
+            reason: "no_pose_detected",
+            timestampMs: Date.now(),
+          });
+        }
+      }
+    }
+  }, [current, phase, secondsLeft, checkpoints, index]);
+
+  useEffect(() => {
+    if (phase === "done" && !validationSummary) {
+      setValidationSummary(
+        buildSessionValidationSummary(
+          scattiResultsRef.current,
+          sessionAccelTotalsRef.current,
+        ),
+      );
+    }
+  }, [phase, validationSummary]);
 
   useEffect(() => {
     return () => stopSpeech();
@@ -161,6 +263,22 @@ export default function SessionScreen() {
         <Text style={[styles.doneDesc, { color: colors.mutedForeground }]}>
           {t("session.completeDesc")}
         </Text>
+        {validationSummary && (
+          <View style={[styles.summaryCard, { backgroundColor: colors.muted }]}>
+            <Text style={[styles.summaryRow, { color: colors.foreground }]}>
+              Scatti validi: {validationSummary.camScattiValid} / {validationSummary.camScattiValid + validationSummary.camScattiInvalid}
+            </Text>
+            <Text style={[styles.summaryRow, { color: colors.foreground }]}>
+              Coerenza movimento: {Math.round(validationSummary.accelerometerCoherenceRatio * 100)}%
+            </Text>
+            <Text style={[styles.summaryRow, { color: colors.foreground }]}>
+              Tier: {validationSummary.verificationTier === "verified_enhanced" ? "Verificata (smartwatch)" : "Verificata (base)"}
+            </Text>
+            <Text style={[styles.summaryRow, { color: validationSummary.isValid ? colors.primary : colors.mutedForeground }]}>
+              {validationSummary.isValid ? "Sessione valida" : "Sessione non validata"}
+            </Text>
+          </View>
+        )}
         <Pressable
           testID="finish-session"
           onPress={() => {
@@ -198,6 +316,10 @@ export default function SessionScreen() {
       </View>
 
       <View style={styles.center}>
+        {phase === "work" && (
+          <PoseCameraView onPose={handlePose} isActive={phase === "work"} />
+        )}
+
         <Text
           style={[
             styles.phaseLabel,
@@ -309,5 +431,15 @@ const styles = StyleSheet.create({
   finishText: {
     fontSize: 16,
     fontWeight: "700",
+  },
+  summaryCard: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 16,
+    gap: 6,
+  },
+  summaryRow: {
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

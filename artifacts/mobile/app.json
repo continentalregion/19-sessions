@@ -48,6 +48,14 @@
             "minSdkVersion": 26
           }
         }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "19 Sessions usa la camera per validare in tempo reale i momenti chiave dei tuoi esercizi. Nessun video viene salvato o inviato.",
+          "enableMicrophonePermission": false,
+          "enableCodeScanner": false
+        }
       ]
     ],
     "experiments": {

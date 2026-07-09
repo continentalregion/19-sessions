@@ -63,6 +63,11 @@
     "expo-sensors": "^15.0.8",
     "expo-speech": "^14.0.8",
     "i18next": "^26.3.5",
-    "react-i18next": "^17.0.8"
+    "react-i18next": "^17.0.8",
+    "react-native-fast-tflite": "^3.0.1",
+    "react-native-nitro-modules": "^0.36.1",
+    "react-native-vision-camera": "^4.7.3",
+    "react-native-worklets-core": "^1.6.3",
+    "vision-camera-resize-plugin": "^3.2.0"
   }
 }
