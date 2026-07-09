@@ -172,8 +172,10 @@ disponibile in ogni momento dalle impostazioni). Va tradotto nelle 4 lingue
 
 > ## Come funziona il prezzo del tuo abbonamento
 >
-> 19 Sessions ha un prezzo che cambia ogni mese in base a quante sessioni di
-> allenamento completi. Ecco la regola esatta, senza sorprese.
+> 19 Sessions è un sistema incentivante con un prezzo che cambia ogni mese in base a
+> quante sessioni completi. Lo schema di sconto è tarato su un ciclo di **12
+> mensilità**: se resti costante per un anno intero, il prezzo scende progressivamente
+> fino al minimo.
 >
 > ### La regola
 >
@@ -185,6 +187,13 @@ disponibile in ogni momento dalle impostazioni). Va tradotto nelle 4 lingue
 > - **Se colleghi anche uno smartwatch e lo usi per la maggior parte delle sessioni** →
 >   il mese dopo scendi di due livelli invece di uno
 > - **Se NON completi 19 sessioni** → il mese dopo paghi di più (sali di un livello)
+>
+> ### Cosa ti serve per usare 19 Sessions
+>
+> - Uno smartphone compatibile con l'app
+> - Un BOSU (da acquistare separatamente, non incluso nell'abbonamento)
+> - Uno smartwatch è facoltativo: serve solo per il bonus di avanzamento più rapido, non
+>   per usare l'app
 >
 > ### I 12 livelli di prezzo
 >
@@ -204,6 +213,19 @@ disponibile in ogni momento dalle impostazioni). Va tradotto nelle 4 lingue
 > | 12 (minimo) | 41€ |
 >
 > **Parti sempre dal Livello 1 (139€) al primo mese.**
+>
+> ### Puoi cancellare quando vuoi
+>
+> - **Nessun vincolo di durata minima**: puoi cancellare l'abbonamento in qualsiasi
+>   momento, anche prima che il ciclo di 12 mesi sia completo
+> - Se cancelli, semplicemente **non prosegui più nella progressione di sconto** —
+>   nessuna penale, nessun costo aggiuntivo per l'uscita anticipata
+> - Hai comunque **14 giorni** dalla prima iscrizione per un rimborso completo, senza
+>   dover spiegare il motivo (diritto di recesso di legge)
+> - Lo schema a 12 livelli è pensato per chi vuole seguire il percorso fino in fondo, ma
+>   non è un obbligo: resti libero di uscire quando vuoi, il prezzo che hai pagato fino
+>   a quel momento resta quello che hai effettivamente pagato, nessun conguaglio
+>   richiesto
 >
 > ### Quanto pagherai in un anno — i due scenari estremi
 >
@@ -229,9 +251,27 @@ disponibile in ogni momento dalle impostazioni). Va tradotto nelle 4 lingue
 > - Il collegamento dello smartwatch è sempre facoltativo: senza, l'abbonamento
 >   funziona comunque secondo la regola base (1 livello al mese)
 >
+> ### Dopo i 12 mesi: il ciclo ricomincia
+>
+> Se resti abbonato oltre il dodicesimo mese, lo schema riparte da capo: al
+> **tredicesimo mese torni al Livello 1 (139€)**, e la progressione ricomincia
+> esattamente come il primo anno — completa 19 sessioni al mese per scendere di nuovo
+> verso il prezzo minimo.
+>
+> Questo vale a prescindere da dove eri arrivato: anche se al mese 12 avevi raggiunto
+> il Livello 12 (41€), il mese 13 riparte comunque dal Livello 1. Il ciclo di 12 mesi si
+> ripete allo stesso modo ogni anno di abbonamento.
+>
 > *Ultimo aggiornamento: [data]. In caso di modifiche a questo schema, te lo
 > comunicheremo con almeno 30 giorni di anticipo prima che entri in vigore sul tuo
 > abbonamento.*
+
+Nota per la build — reset annuale: la state machine pricing (sezione 6) deve tracciare
+non solo `current_level` ma anche il mese di anniversario dell'abbonamento, per
+azzerare `current_level` a 0 (Livello 1) automaticamente all'inizio del tredicesimo
+mese, indipendentemente dal livello raggiunto. Questo è un nuovo campo/logica rispetto
+allo schema dati in sezione 5 (serve un `subscription_started_at` o
+`cycle_month_counter` in `pricing_state`).
 
 Nota di coerenza numerica per la build: la numerazione dei livelli qui è 1–12 (livello
 1 = 139€, livello 12 = 41€) nel testo utente, mentre altrove nel piano (sezioni 4 e 6)
