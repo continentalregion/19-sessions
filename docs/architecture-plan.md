@@ -33,10 +33,68 @@ di 19 sessioni/mese.
   ripetizione dello stesso esercizio.
 - Esempio struttura (da raffinare con Francesco): 8–10 esercizi x 3–4 minuti ciascuno
   con transizioni/riposo guidato, sequenza fissa e pubblica (stessa per tutti).
-- **TODO aperto:** i 4 circuiti fissi (esercizi specifici per obiettivo:
-  muscle_tone / posture / cardio_general / weight_loss) non sono ancora definiti nel
-  dettaglio — bozza attuale in `artifacts/mobile/constants/circuits.ts` è provvisoria e
-  va validata/rifinita prima della build definitiva.
+- **Definizione definitiva dei 4 circuiti fissi** (sostituisce la bozza provvisoria in
+  `artifacts/mobile/constants/circuits.ts`, ancora da aggiornare in fase di build):
+
+  ### Circuito 1 — Muscle Tone (tono muscolare), 35 min totali, più forza / meno cardio puro
+
+  | # | Esercizio | Durata | Categoria |
+  |---|---|---|---|
+  | 1 | Squat su BOSU (lato piatto su) | 4 min | Forza arti inferiori |
+  | 2 | Push-up su BOSU (mani sulla cupola) | 4 min | Forza arti superiori |
+  | 3 | Affondi alternati su BOSU | 4 min | Forza arti inferiori |
+  | 4 | Plank con mani su BOSU | 3 min | Core/equilibrio |
+  | 5 | Glute bridge su BOSU | 4 min | Forza arti inferiori |
+  | 6 | Push-up + rotazione (mani su BOSU) | 4 min | Forza arti superiori |
+  | 7 | Squat jump su BOSU (basso impatto) | 4 min | Forza/cardio |
+  | 8 | Side plank su BOSU (dx/sx) | 4 min | Core/equilibrio |
+  | — | Riscaldamento + defaticamento | 4 min | — |
+
+  ### Circuito 2 — Posture (postura), 35 min totali, focus core/equilibrio/stabilizzazione
+
+  | # | Esercizio | Durata | Categoria |
+  |---|---|---|---|
+  | 1 | Bird-dog su BOSU | 4 min | Core/equilibrio |
+  | 2 | Plank frontale su BOSU | 4 min | Core |
+  | 3 | Squat isometrico con reach overhead | 4 min | Postura/forza |
+  | 4 | Single-leg stand su BOSU (dx/sx) | 4 min | Equilibrio |
+  | 5 | Superman su BOSU | 4 min | Postura/schiena |
+  | 6 | Wall angel + BOSU squat | 4 min | Postura spalle |
+  | 7 | Side plank con rotazione | 4 min | Core/equilibrio |
+  | 8 | Cat-cow su BOSU (mobilità) | 3 min | Mobilità |
+  | — | Riscaldamento + defaticamento | 4 min | — |
+
+  ### Circuito 3 — Cardio General, 30–35 min totali, meno pause, intensità continua
+
+  | # | Esercizio | Durata | Categoria |
+  |---|---|---|---|
+  | 1 | Step-up su BOSU (alternato veloce) | 4 min | Cardio |
+  | 2 | Mountain climber su BOSU | 3 min | Cardio |
+  | 3 | Squat jump su BOSU | 4 min | Cardio/forza |
+  | 4 | Burpee con BOSU (mani su cupola) | 3 min | Cardio |
+  | 5 | Affondi laterali dinamici | 4 min | Cardio/forza |
+  | 6 | Plank jack su BOSU | 3 min | Cardio/core |
+  | 7 | Squat + press overhead (dinamico) | 4 min | Cardio/forza |
+  | 8 | High knees vicino a BOSU (equilibrio) | 3 min | Cardio |
+  | — | Riscaldamento + defaticamento | 3 min | — |
+
+  ### Circuito 4 — Weight Loss (dimagrimento), 40 min totali, mix forza+cardio, intensità più alta
+
+  | # | Esercizio | Durata | Categoria |
+  |---|---|---|---|
+  | 1 | Squat jump su BOSU | 4 min | Cardio/forza |
+  | 2 | Push-up su BOSU | 4 min | Forza |
+  | 3 | Mountain climber su BOSU | 4 min | Cardio |
+  | 4 | Affondi alternati dinamici | 4 min | Forza/cardio |
+  | 5 | Burpee con BOSU | 4 min | Cardio |
+  | 6 | Plank + toccata spalla | 4 min | Core/cardio |
+  | 7 | Step-up veloce | 4 min | Cardio |
+  | 8 | Glute bridge + leg extension | 4 min | Forza |
+  | — | Riscaldamento + defaticamento | 4 min | — |
+
+  Nota: nomi esercizio, durate e categorie qui sono la fonte di verità definitiva; la
+  fase di build dovrà tradurli nelle 4 lingue (it/en/es/zh) e nei rispettivi TTS cue,
+  seguendo lo stesso pattern usato per l'onboarding.
 - L'app guida l'utente attraverso il circuito con feedback live (voce/testo: "prossimo
   esercizio", "mantieni la posizione", ecc.) — localizzato in 4 lingue (già implementato
   lato UI/TTS nella fase onboarding+localizzazione).
@@ -115,7 +173,8 @@ di 19 sessioni/mese.
 
 ## Aperture da chiudere prima della build
 
-1. Definizione dettagliata dei 4 circuiti fissi (esercizi specifici per obiettivo).
+1. ~~Definizione dettagliata dei 4 circuiti fissi (esercizi specifici per obiettivo).~~
+   **Chiuso** — vedi tabelle complete nella sezione 3.
 2. Testo del disclaimer prezzi.
 
 ## Stato implementazione ad oggi
