@@ -33,68 +33,82 @@ di 19 sessioni/mese.
   ripetizione dello stesso esercizio.
 - Esempio struttura (da raffinare con Francesco): 8–10 esercizi x 3–4 minuti ciascuno
   con transizioni/riposo guidato, sequenza fissa e pubblica (stessa per tutti).
-- **Definizione definitiva dei 4 circuiti fissi** (sostituisce la bozza provvisoria in
-  `artifacts/mobile/constants/circuits.ts`, ancora da aggiornare in fase di build):
+- **Definizione definitiva dei 4 circuiti fissi** (implementata in
+  `artifacts/mobile/constants/circuits.ts`). Sequenza, esercizi e categorie sono la
+  fonte di verità; le durate sotto sono il **ritmo calibrato per principianti**
+  (sostituisce una prima bozza più aggressiva a 4 min/esercizio, corretta dopo
+  revisione prodotto per accessibilità):
 
-  ### Circuito 1 — Muscle Tone (tono muscolare), 35 min totali, più forza / meno cardio puro
+  - **Circuiti "standard"** (Muscle Tone, Posture): lavoro **3 min (180s)** per
+    esercizio, pausa **30s** tra esercizi, riscaldamento/defaticamento **3 min
+    (180s)**. Totale: 8 × (180+30) + 180 = 1860s = **~31 min**.
+  - **Circuiti "cardio"** (Cardio General, Weight Loss): lavoro **170s** per
+    esercizio, pausa **25s** tra esercizi, riscaldamento/defaticamento **4 min
+    (240s)** — leggermente più lungo per compensare l'intensità cardio. Totale:
+    8 × (170+25) + 240 = 1800s = **~30 min**.
+  - Entrambi i profili rientrano nel range 30–40 min richiesto sopra.
 
-  | # | Esercizio | Durata | Categoria |
-  |---|---|---|---|
-  | 1 | Squat su BOSU (lato piatto su) | 4 min | Forza arti inferiori |
-  | 2 | Push-up su BOSU (mani sulla cupola) | 4 min | Forza arti superiori |
-  | 3 | Affondi alternati su BOSU | 4 min | Forza arti inferiori |
-  | 4 | Plank con mani su BOSU | 3 min | Core/equilibrio |
-  | 5 | Glute bridge su BOSU | 4 min | Forza arti inferiori |
-  | 6 | Push-up + rotazione (mani su BOSU) | 4 min | Forza arti superiori |
-  | 7 | Squat jump su BOSU (basso impatto) | 4 min | Forza/cardio |
-  | 8 | Side plank su BOSU (dx/sx) | 4 min | Core/equilibrio |
-  | — | Riscaldamento + defaticamento | 4 min | — |
+  ### Circuito 1 — Muscle Tone (tono muscolare), ~31 min totali, più forza / meno cardio puro
 
-  ### Circuito 2 — Posture (postura), 35 min totali, focus core/equilibrio/stabilizzazione
+  | # | Esercizio | Durata lavoro | Pausa | Categoria |
+  |---|---|---|---|---|
+  | 1 | Squat su BOSU | 180s | 30s | Forza arti inferiori |
+  | 2 | Push-up su BOSU | 180s | 30s | Forza arti superiori |
+  | 3 | Affondi alternati su BOSU | 180s | 30s | Forza arti inferiori |
+  | 4 | Plank con mani su BOSU | 180s | 30s | Core/equilibrio |
+  | 5 | Glute bridge su BOSU | 180s | 30s | Forza arti inferiori |
+  | 6 | Push-up + rotazione | 180s | 30s | Forza arti superiori |
+  | 7 | Squat jump su BOSU | 180s | 30s | Forza/cardio |
+  | 8 | Side plank su BOSU | 180s | 30s | Core/equilibrio |
+  | — | Riscaldamento + defaticamento | 180s | — | — |
 
-  | # | Esercizio | Durata | Categoria |
-  |---|---|---|---|
-  | 1 | Bird-dog su BOSU | 4 min | Core/equilibrio |
-  | 2 | Plank frontale su BOSU | 4 min | Core |
-  | 3 | Squat isometrico con reach overhead | 4 min | Postura/forza |
-  | 4 | Single-leg stand su BOSU (dx/sx) | 4 min | Equilibrio |
-  | 5 | Superman su BOSU | 4 min | Postura/schiena |
-  | 6 | Wall angel + BOSU squat | 4 min | Postura spalle |
-  | 7 | Side plank con rotazione | 4 min | Core/equilibrio |
-  | 8 | Cat-cow su BOSU (mobilità) | 3 min | Mobilità |
-  | — | Riscaldamento + defaticamento | 4 min | — |
+  ### Circuito 2 — Posture (postura), ~31 min totali, focus core/equilibrio/stabilizzazione
 
-  ### Circuito 3 — Cardio General, 30–35 min totali, meno pause, intensità continua
+  | # | Esercizio | Durata lavoro | Pausa | Categoria |
+  |---|---|---|---|---|
+  | 1 | Bird-dog su BOSU | 180s | 30s | Core/equilibrio |
+  | 2 | Plank frontale su BOSU | 180s | 30s | Core |
+  | 3 | Squat isometrico con reach overhead | 180s | 30s | Postura/forza |
+  | 4 | Single-leg stand su BOSU | 180s | 30s | Equilibrio |
+  | 5 | Superman su BOSU | 180s | 30s | Postura/schiena |
+  | 6 | Wall angel + BOSU squat | 180s | 30s | Postura spalle |
+  | 7 | Side plank con rotazione | 180s | 30s | Core/equilibrio |
+  | 8 | Cat-cow su BOSU | 180s | 30s | Mobilità |
+  | — | Riscaldamento + defaticamento | 180s | — | — |
 
-  | # | Esercizio | Durata | Categoria |
-  |---|---|---|---|
-  | 1 | Step-up su BOSU (alternato veloce) | 4 min | Cardio |
-  | 2 | Mountain climber su BOSU | 3 min | Cardio |
-  | 3 | Squat jump su BOSU | 4 min | Cardio/forza |
-  | 4 | Burpee con BOSU (mani su cupola) | 3 min | Cardio |
-  | 5 | Affondi laterali dinamici | 4 min | Cardio/forza |
-  | 6 | Plank jack su BOSU | 3 min | Cardio/core |
-  | 7 | Squat + press overhead (dinamico) | 4 min | Cardio/forza |
-  | 8 | High knees vicino a BOSU (equilibrio) | 3 min | Cardio |
-  | — | Riscaldamento + defaticamento | 3 min | — |
+  ### Circuito 3 — Cardio General, ~30 min totali, meno pause, intensità continua
 
-  ### Circuito 4 — Weight Loss (dimagrimento), 40 min totali, mix forza+cardio, intensità più alta
+  | # | Esercizio | Durata lavoro | Pausa | Categoria |
+  |---|---|---|---|---|
+  | 1 | Step-up su BOSU | 170s | 25s | Cardio |
+  | 2 | Mountain climber su BOSU | 170s | 25s | Cardio |
+  | 3 | Squat jump su BOSU | 170s | 25s | Cardio/forza |
+  | 4 | Burpee con BOSU | 170s | 25s | Cardio |
+  | 5 | Affondi laterali dinamici | 170s | 25s | Cardio/forza |
+  | 6 | Plank jack su BOSU | 170s | 25s | Cardio/core |
+  | 7 | Squat + press overhead | 170s | 25s | Cardio/forza |
+  | 8 | High knees vicino a BOSU | 170s | 25s | Cardio |
+  | — | Riscaldamento + defaticamento | 240s | — | — |
 
-  | # | Esercizio | Durata | Categoria |
-  |---|---|---|---|
-  | 1 | Squat jump su BOSU | 4 min | Cardio/forza |
-  | 2 | Push-up su BOSU | 4 min | Forza |
-  | 3 | Mountain climber su BOSU | 4 min | Cardio |
-  | 4 | Affondi alternati dinamici | 4 min | Forza/cardio |
-  | 5 | Burpee con BOSU | 4 min | Cardio |
-  | 6 | Plank + toccata spalla | 4 min | Core/cardio |
-  | 7 | Step-up veloce | 4 min | Cardio |
-  | 8 | Glute bridge + leg extension | 4 min | Forza |
-  | — | Riscaldamento + defaticamento | 4 min | — |
+  ### Circuito 4 — Weight Loss (dimagrimento), ~30 min totali, mix forza+cardio, intensità più alta
 
-  Nota: nomi esercizio, durate e categorie qui sono la fonte di verità definitiva; la
-  fase di build dovrà tradurli nelle 4 lingue (it/en/es/zh) e nei rispettivi TTS cue,
-  seguendo lo stesso pattern usato per l'onboarding.
+  | # | Esercizio | Durata lavoro | Pausa | Categoria |
+  |---|---|---|---|---|
+  | 1 | Squat jump su BOSU | 170s | 25s | Cardio/forza |
+  | 2 | Push-up su BOSU | 170s | 25s | Forza |
+  | 3 | Mountain climber su BOSU | 170s | 25s | Cardio |
+  | 4 | Affondi alternati dinamici | 170s | 25s | Forza/cardio |
+  | 5 | Burpee con BOSU | 170s | 25s | Cardio |
+  | 6 | Plank + toccata spalla | 170s | 25s | Core/cardio |
+  | 7 | Step-up veloce | 170s | 25s | Cardio |
+  | 8 | Glute bridge + leg extension | 170s | 25s | Forza |
+  | — | Riscaldamento + defaticamento | 240s | — | — |
+
+  Nota: nomi esercizio e categorie sono la fonte di verità definitiva, già tradotti
+  nelle 4 lingue (it/en/es/zh) in `artifacts/mobile/constants/translations.ts` e nei
+  rispettivi TTS cue, seguendo lo stesso pattern usato per l'onboarding. Le durate
+  sopra sono anch'esse definitive (ritmo calibrato per principianti) e vanno
+  mantenute sincronizzate con `artifacts/mobile/constants/circuits.ts` se rivisitate.
 - L'app guida l'utente attraverso il circuito con feedback live (voce/testo: "prossimo
   esercizio", "mantieni la posizione", ecc.) — localizzato in 4 lingue (già implementato
   lato UI/TTS nella fase onboarding+localizzazione).
