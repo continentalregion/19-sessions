@@ -163,19 +163,88 @@ di 19 sessioni/mese.
   verifica usato): -1 livello, min livello 0.
 - Nessun rimborso negativo, nessun deposito trattenuto — solo billing Stripe mensile con
   importo dal livello corrente.
-- **TODO aperto:** testo del disclaimer prezzi (tabella prezzi completa e scenario
-  peggiore/migliore da mostrare pre-checkout) non ancora definito.
 
-## 7. Compliance (solo pianificato)
+## 7. Compliance — testo disclaimer prezzi (definitivo, da mostrare pre-checkout)
 
-- Tabella prezzi completa e scenario peggiore/migliore da mostrare pre-checkout.
-- Cooling-off 14 giorni.
+Testo finale approvato, da mostrare all'utente prima della sottoscrizione (e reso
+disponibile in ogni momento dalle impostazioni). Va tradotto nelle 4 lingue
+(it/en/es/zh) in fase di build, mantenendo lo stesso significato legale/numerico.
+
+> ## Come funziona il prezzo del tuo abbonamento
+>
+> 19 Sessions ha un prezzo che cambia ogni mese in base a quante sessioni di
+> allenamento completi. Ecco la regola esatta, senza sorprese.
+>
+> ### La regola
+>
+> Ogni mese devi completare **19 sessioni valide** (verificate tramite camera,
+> movimento e — se colleghi uno smartwatch — battito cardiaco) per far scendere il tuo
+> prezzo il mese successivo.
+>
+> - **Se completi 19 sessioni** → il mese dopo paghi meno (scendi di un livello)
+> - **Se colleghi anche uno smartwatch e lo usi per la maggior parte delle sessioni** →
+>   il mese dopo scendi di due livelli invece di uno
+> - **Se NON completi 19 sessioni** → il mese dopo paghi di più (sali di un livello)
+>
+> ### I 12 livelli di prezzo
+>
+> | Livello | Prezzo/mese |
+> |---|---|
+> | 1 (partenza) | 139€ |
+> | 2 | 130€ |
+> | 3 | 121€ |
+> | 4 | 112€ |
+> | 5 | 103€ |
+> | 6 | 94€ |
+> | 7 | 86€ |
+> | 8 | 77€ |
+> | 9 | 68€ |
+> | 10 | 59€ |
+> | 11 | 50€ |
+> | 12 (minimo) | 41€ |
+>
+> **Parti sempre dal Livello 1 (139€) al primo mese.**
+>
+> ### Quanto pagherai in un anno — i due scenari estremi
+>
+> - **Se completi sempre le 19 sessioni ogni mese**: pagherai circa **1.080€ nell'anno**
+>   (arrivi al prezzo minimo e ci resti)
+> - **Se non completi mai le 19 sessioni**: pagherai circa **1.668€ nell'anno** (resti
+>   sempre al prezzo pieno o vicino)
+> - La maggior parte delle persone si troverà in una via di mezzo tra questi due numeri,
+>   in base a quanto è costante
+>
+> ### Cosa NON succede mai
+>
+> - Non ti chiediamo mai un pagamento anticipato o un deposito
+> - Non tratteniamo mai il tuo denaro: paghi solo il prezzo del mese corrente, ogni mese
+> - Non ci sono rimborsi da richiedere: se il prezzo scende, lo vedi scontato
+>   direttamente sull'addebito successivo
+>
+> ### I tuoi diritti
+>
+> - Puoi cancellare l'abbonamento in qualsiasi momento
+> - Hai **14 giorni** dalla prima iscrizione per cambiare idea e ottenere il rimborso
+>   completo, senza dover spiegare il motivo
+> - Il collegamento dello smartwatch è sempre facoltativo: senza, l'abbonamento
+>   funziona comunque secondo la regola base (1 livello al mese)
+>
+> *Ultimo aggiornamento: [data]. In caso di modifiche a questo schema, te lo
+> comunicheremo con almeno 30 giorni di anticipo prima che entri in vigore sul tuo
+> abbonamento.*
+
+Nota di coerenza numerica per la build: la numerazione dei livelli qui è 1–12 (livello
+1 = 139€, livello 12 = 41€) nel testo utente, mentre altrove nel piano (sezioni 4 e 6)
+e nello schema dati si usa 0–11 (livello 0 = 139€, livello 11 = 41€) per indicizzazione
+zero-based lato codice. Sono lo stesso schema di prezzi — la build dovrà scegliere una
+convenzione unica lato dati e mappare la UI/testo utente sulla numerazione 1–12 per
+chiarezza percepita.
 
 ## Aperture da chiudere prima della build
 
-1. ~~Definizione dettagliata dei 4 circuiti fissi (esercizi specifici per obiettivo).~~
-   **Chiuso** — vedi tabelle complete nella sezione 3.
-2. Testo del disclaimer prezzi.
+Nessuna aperta al momento — entrambi i punti precedenti (circuiti fissi, disclaimer
+prezzi) sono stati chiusi. Prossimo passo: passare alla fase di build quando
+l'utente lo richiede esplicitamente.
 
 ## Stato implementazione ad oggi
 
