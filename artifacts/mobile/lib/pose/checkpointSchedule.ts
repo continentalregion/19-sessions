@@ -35,7 +35,3 @@ export function getCheckpointsForExercise(exercise: CircuitExercise): Checkpoint
     label,
   }));
 }
-
-/** Minimum fraction of checkpoints across the whole session that must be
- * valid for the session to count as a completed 19-Session workout. */
-export const SESSION_MIN_VALID_CHECKPOINT_RATIO = 0.7;

@@ -110,8 +110,26 @@ di 19 sessioni/mese.
   tracking continuo, riduce il vincolo di spazio/inquadratura.
 - **Accelerometro/giroscopio**: conferma movimento continuativo per tutta la durata
   della sessione (30–40 min), copre i momenti tra uno scatto camera e l'altro.
-- **Sessione valida SE**: `scatti_camera_validi >= soglia` AND
-  `pattern_accelerometro coerente con intensità attesa per l'esercizio`.
+- **Punteggio di validità** — score continuo pesato, non un semplice AND binario:
+  `score = 0.50 × scatti_ratio + 0.35 × accelerometro_ratio + 0.15 × wearable_score`
+  (termine wearable presente solo se un wearable è collegato). Se il wearable
+  **non** è collegato, il peso 0.15 viene redistribuito proporzionalmente tra
+  camera e accelerometro (camera 0.59, accelerometro 0.41), senza perdita di peso
+  al denominatore. **Sessione valida SE `score >= 0.70`.**
+- Il modello di pose estimation on-device è **MoveNet Lightning (TFLite)** via
+  `react-native-fast-tflite` + `vision-camera-resize-plugin` — scelta definitiva,
+  non provvisoria. Motivo: non esiste un binding MediaPipe Pose Landmarker
+  maturo/mantenuto per React Native/Expo pronto all'uso (richiederebbe scrivere
+  wrapper nativi Kotlin/Swift da zero); MoveNet+TFLite si integra invece con
+  `react-native-vision-camera` come frame processor JS-side senza codice nativo
+  aggiuntivo. Vincolo di compatibilità noto: richiede `react-native-vision-camera`
+  nella linea `^4.x` (la v5, riscrittura Nitro, ha rimosso l'API classica
+  `useFrameProcessor`/`frameProcessor` da cui dipendono questi plugin).
+- **Limitazione nota v1**: i checkpoint camera ("scatti") sono posizionati a
+  percentuale di tempo fissa della fase di lavoro (20% / 50% / 80%), uguali per
+  tutti gli esercizi — non sulla fase di movimento effettivamente rilevata (es.
+  minimo angolo ginocchio per il punto più basso dello squat). Da rivalutare dopo
+  test su device reale se emergono troppi falsi negativi/positivi.
 - Il backend riceve solo il riepilogo strutturato per esercizio (no video, no immagini).
 
 ### Livello 2 — opzionale, bonus di affidabilità
@@ -119,11 +137,12 @@ di 19 sessioni/mese.
 - Integrazione wearable (Apple Health / Google Health Connect / Fitbit API) per
   frequenza cardiaca durante la sessione.
 - Se HR media durante l'esercizio supera soglia minima di sforzo (es. 60% frequenza
-  cardiaca max stimata) → sessione marcata `verified_enhanced` invece di
-  `verified_base`.
+  cardiaca max stimata) → `wearable_score = 1` nel punteggio di validità sopra, e la
+  sessione è marcata `verified_enhanced` invece di `verified_base` per il bonus di
+  pricing (calcolo `reliability_score` separato, invariato: 1.0 base / 1.5 enhanced).
 - Il collegamento wearable **non è mai obbligatorio** per validare una sessione
-  (accessibilità, non tutti hanno un wearable) — è solo un moltiplicatore di
-  progressione nel pricing.
+  (accessibilità, non tutti hanno un wearable) — quando assente, il punteggio di
+  validità usa semplicemente i pesi redistribuiti camera/accelerometro (0.59/0.41).
 
 ### Anti-cheat aggiuntivo (invariato dal piano precedente)
 
