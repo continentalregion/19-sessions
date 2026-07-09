@@ -1,0 +1,50 @@
+Non usare subagent né testing monitor (costo token).
+
+RICHIESTA: Ricalibrare le durate dei 4 circuiti fissi in 
+artifacts/mobile/constants/circuits.ts — il ritmo attuale (4 min 
+di lavoro per esercizio, pause di 10-20s) è troppo aggressivo per 
+utenti principianti. Serve un ritmo più accessibile, mantenendo 
+comunque la sessione totale nel range 30-40 minuti già richiesto 
+dal piano.
+
+NUOVI PARAMETRI (sostituiscono le costanti attuali MIN_4/MIN_3/
+REST_DEFAULT/REST_SHORT):
+
+Per i circuiti "standard" (muscle_tone, posture):
+- Lavoro per esercizio: 180s (3 min), invece di 240s
+- Pausa tra esercizi: 30s, invece di 20s
+- Riscaldamento/defaticamento: 180s (3 min)
+- Durata totale risultante: ~31 min (verificato: 8 esercizi × 
+  (180+30) + 180 = 1860s = 31 min)
+
+Per i circuiti "cardio" (cardio_general, weight_loss):
+- Lavoro per esercizio: 170s, invece di 240s/180s misti
+- Pausa tra esercizi: 25s, invece di 10s
+- Riscaldamento/defaticamento: 240s (4 min, leggermente più lungo 
+  per compensare l'intensità cardio)
+- Durata totale risultante: ~30 min (verificato: 8 esercizi × 
+  (170+25) + 240 = 1800s = 30 min)
+
+AZIONI RICHIESTE:
+1. Aggiorna le costanti in circuits.ts (rinomina se serve, es. 
+   WORK_STANDARD=180, REST_STANDARD=30, WORK_CARDIO=170, 
+   REST_CARDIO=25, WARMUP_STANDARD=180, WARMUP_CARDIO=240)
+2. Applica i nuovi valori a tutti gli esercizi nei 4 circuiti 
+   (sostituendo i vecchi workSeconds/restSeconds riga per riga — 
+   NON toccare nameKey, category, id, ordine degli esercizi: 
+   quelli restano identici a quanto già verificato)
+3. Verifica con getCircuitTotalMinutes() che ogni circuito risulti 
+   tra 30 e 40 minuti totali — stampa i 4 totali nel log/commento 
+   per verifica
+4. Aggiorna docs/architecture-plan.md sezione 3 con le nuove 
+   durate calibrate (sostituendo le vecchie tabelle con "4 min per 
+   esercizio" che non sono più valide)
+5. Typecheck pulito prima di pushare
+
+Non serve toccare checkpointSchedule.ts, exerciseValidators.ts, 
+o sessionValidation.ts — quella logica lavora su percentuali della 
+durata (20/50/80%), quindi si adatta automaticamente ai nuovi 
+workSeconds senza modifiche.
+
+Push su GitHub al termine, poi fermati per la mia verifica prima 
+di procedere allo step 5.
