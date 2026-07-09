@@ -14,9 +14,17 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.trantads.sessions19",
+      "infoPlist": {
+        "NSCameraUsageDescription": "19 Sessions usa la camera per validare in tempo reale i momenti chiave dei tuoi esercizi (nessun video viene salvato o inviato).",
+        "NSMotionUsageDescription": "19 Sessions usa accelerometro e giroscopio per confermare il movimento durante tutta la sessione di allenamento."
+      }
     },
-    "android": {},
+    "android": {
+      "package": "com.trantads.sessions19",
+      "permissions": ["CAMERA", "ACTIVITY_RECOGNITION"]
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
@@ -28,7 +36,19 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-dev-client",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          },
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
