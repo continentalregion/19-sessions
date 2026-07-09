@@ -28,18 +28,21 @@ Fitness mobile app (Expo/React Native) built around a fixed 19-workout circuit s
 
 - `artifacts/api-server/src/lib/pricingStateMachine.ts` — pure pricing level logic (12 levels, advance/regress/reset rules)
 - `artifacts/api-server/src/lib/stripeClient.ts` — Stripe client + StripeSync init (webhook handling, `stripe.*` schema sync)
-- `artifacts/api-server/src/routes/pricing.ts` — pricing state, checkout, portal, and monthly cycle-all endpoints
+- `artifacts/api-server/src/lib/clerkProxyMiddleware.ts` — Clerk proxy middleware (mounted before body parsers/cors)
+- `artifacts/api-server/src/routes/pricing.ts` — pricing state, checkout, portal (all `requireAuth()`-gated), and monthly cycle-all endpoints
 - `scripts/src/seed-pricing-products.ts` — one-off/idempotent Stripe product & price seeding
-- `artifacts/mobile/context/AppContext.tsx` — device-generated `userId` (UUID, SecureStore/AsyncStorage), goal + language state
+- `artifacts/mobile/app/(auth)/sign-in.tsx`, `sign-up.tsx` — custom Clerk auth screens (Core v3 SDK: email/password + Google SSO)
+- `artifacts/mobile/app/_layout.tsx` — `ClerkProvider`/`ClerkLoaded` wrapper, auth gate (`useAuth().isSignedIn`), wires `setAuthTokenGetter`
+- `artifacts/mobile/context/AppContext.tsx` — device-generated `userId` (UUID, SecureStore/AsyncStorage) — **local/analytics identifier only**, not used for pricing/Stripe calls
 - `artifacts/mobile/app/(tabs)/settings.tsx` — subscription section (level, price, status, subscribe/manage actions)
 - `docs/architecture-plan.md` — full product/pricing spec (Italian) and implementation status log
 
 ## Architecture decisions
 
 - Pricing levels are 0-indexed in data/logic (`currentLevel` 0–11) and mapped to 1–12 for user-facing display (`displayLevel`) — keeps DB/state-machine code zero-based while matching the user-facing "Level 1–12" copy.
-- Per-user identity for pricing has no login system — a UUID is generated on first launch and persisted via SecureStore (native) / AsyncStorage (web), used as `userId` for all pricing/Stripe calls.
+- **Authentication is Clerk (real login), not the device UUID.** All `/api/pricing/*` routes (state/checkout/portal) derive `userId` from `getAuth(req).userId` after `requireAuth()` — never from a client-supplied path param or body. This fixed an IDOR where any client could read/mutate another user's pricing state or open Checkout/Portal for them by supplying their UUID. The device UUID in `AppContext` remains only as a local/analytics identifier. Mobile uses custom Clerk Core v3 SDK screens (native `<SignIn/>`/`<SignUp/>` components don't work in Expo Go) with email/password + Google SSO; the session token is attached to API calls via `setAuthTokenGetter`.
 - `stripe-replit-sync` must be excluded from the esbuild bundle (`external` list in `artifacts/api-server/build.mjs`) — it resolves its own `migrations/` directory relative to its `__dirname` at runtime, which breaks silently when bundled into a single output file.
-- Monthly pricing cycle evaluation runs via `POST /api/pricing/cycle-all`, gated by an `x-cron-secret` header matched against `CRON_SECRET` — intended to be triggered by an external scheduler.
+- Monthly pricing cycle evaluation runs via `POST /api/pricing/cycle-all`, gated by an `x-cron-secret` header matched against `CRON_SECRET` — intended to be triggered by an external scheduler. Not client-callable, so it wasn't part of the IDOR fix.
 
 ## Product
 

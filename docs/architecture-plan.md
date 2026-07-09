@@ -347,9 +347,47 @@ l'utente lo richiede esplicitamente.
     silenziosamente (nessuna migrazione applicata, nessun errore visibile finché non si
     usano le tabelle `stripe.*`).
   - Lato mobile: `context/AppContext.tsx` genera e persiste un `userId` (UUID v4 via
-    `expo-crypto`, salvato in SecureStore/AsyncStorage) come identità stabile per-device,
-    usata per tutte le chiamate di pricing. Sezione "Abbonamento" in
-    `app/(tabs)/settings.tsx` mostra livello/prezzo/stato e apre Checkout o Customer
-    Portal tramite `expo-web-browser`.
+    `expo-crypto`, salvato in SecureStore/AsyncStorage) — **ora usato solo come
+    identificatore locale/analytics, non più per le chiamate di pricing** (vedi
+    fix IDOR sotto). Sezione "Abbonamento" in `app/(tabs)/settings.tsx` mostra
+    livello/prezzo/stato e apre Checkout o Customer Portal tramite
+    `expo-web-browser`.
+- **Fix di sicurezza (IDOR) — autenticazione Clerk reale su `/api/pricing/*`:**
+  - Problema: `GET /api/pricing/state/:userId`, `POST /api/pricing/checkout` e
+    `POST /api/pricing/portal` si fidavano di un `userId` fornito dal client
+    (path param o body) — chiunque poteva leggere/modificare lo stato di
+    pricing e avviare Checkout/Portal per un altro utente semplicemente
+    indovinando/impostando il suo UUID.
+  - Fix: aggiunto Clerk (stesso provider/tenant pattern di SGI, tenant separato
+    per questo progetto) come vero sistema di autenticazione. Il server monta
+    `clerkMiddleware()` prima del router `/api`; le tre route pricing usano
+    `requireAuth()` + `getAuth(req).userId` — l'`userId` non arriva più né da
+    path param né da body, è sempre derivato dal token di sessione Clerk
+    verificato lato server. L'email per Stripe Checkout viene letta dal
+    profilo Clerk dell'utente autenticato (`clerkClient.users.getUser`), non
+    più passata dal client.
+  - OpenAPI (`lib/api-spec/openapi.yaml`): `/pricing/state/{userId}` →
+    `/pricing/state` (nessun path param); rimossi gli schemi
+    `PricingCheckoutInput`/`PricingPortalInput` (nessun body con userId/email);
+    aggiunto `security: [clerkAuth: []]` + risposte 401 su state/checkout/
+    portal.
+  - Lato mobile: schermate di sign-in/sign-up custom (Core v3 SDK di Clerk —
+    i componenti nativi `<SignIn/>`/`<SignUp/>` non funzionano in Expo Go) in
+    `app/(auth)/`, con email+password e Google SSO via `useSSO().startSSOFlow()`.
+    Root layout avvolto in `ClerkProvider`+`ClerkLoaded`; la navigazione è
+    bloccata su `useAuth().isSignedIn` (redirect a `/(auth)/sign-in` se non
+    autenticato). Una volta autenticato, il token di sessione viene passato ad
+    ogni chiamata API tramite `setAuthTokenGetter(() => getToken())` — il
+    device-UUID resta solo come identificatore locale, non più inviato al
+    server per le chiamate di pricing.
+  - `POST /api/pricing/cycle-all` resta invariato: è un endpoint cron-only,
+    protetto da header `x-cron-secret` contro `CRON_SECRET`, non richiamabile
+    dal client mobile — non soggetto allo stesso problema.
+  - Verifica: `pnpm run typecheck` (api-spec, api-server, mobile) pulito;
+    bundling Expo verificato via log dopo restart. Verifica visiva completa
+    del flusso di sign-in richiede un dev build/Expo Go su device reale — la
+    preview web non supporta `react-native-vision-camera` (limite preesistente,
+    non legato a questo fix) e mostra un overlay di errore su qualsiasi route
+    che carichi il modulo camera.
 - Non ancora iniziato: integrazione wearable (fase 2), anti-cheat (Play Integrity/
   DeviceCheck), analisi statistica server-side avanzata.

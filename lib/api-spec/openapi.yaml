@@ -26,20 +26,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
-  /pricing/state/{userId}:
+  /pricing/state:
     get:
       operationId: getPricingState
       tags: [pricing]
-      summary: Get pricing state
+      summary: Get pricing state for the authenticated user
       description: >-
-        Returns the current pricing level and monthly progress for a user.
-        Creates a default Level 1 (currentLevel 0) row if none exists yet.
-      parameters:
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: string
+        Returns the current pricing level and monthly progress for the
+        authenticated caller (identified from the Clerk session, never from a
+        client-supplied identifier). Creates a default Level 1 (currentLevel 0)
+        row if none exists yet.
+      security:
+        - clerkAuth: []
       responses:
         "200":
           description: Pricing state
@@ -47,17 +45,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PricingState"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /pricing/checkout:
     post:
       operationId: createPricingCheckout
       tags: [pricing]
       summary: Create a Stripe Checkout session for the current level's price
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PricingCheckoutInput"
+      description: >-
+        Operates on the authenticated caller only (Clerk session). The Stripe
+        customer email is taken from the authenticated user's Clerk profile.
+      security:
+        - clerkAuth: []
       responses:
         "200":
           description: Checkout session created
@@ -71,17 +74,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /pricing/portal:
     post:
       operationId: createPricingPortalSession
       tags: [pricing]
       summary: Create a Stripe customer portal session (cancel/manage billing)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PricingPortalInput"
+      description: >-
+        Operates on the authenticated caller only (Clerk session) — never on a
+        userId supplied by the client.
+      security:
+        - clerkAuth: []
       responses:
         "200":
           description: Portal session created
@@ -89,6 +97,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PricingPortalSession"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: No Stripe customer for this user
           content:
@@ -184,18 +198,6 @@ components:
         - lastMonthCompleted
         - avgReliabilityScoreMonth
         - subscriptionStatus
-    PricingCheckoutInput:
-      type: object
-      properties:
-        userId:
-          type: string
-          minLength: 1
-        email:
-          type: string
-          minLength: 3
-      required:
-        - userId
-        - email
     PricingCheckoutSession:
       type: object
       properties:
@@ -203,14 +205,6 @@ components:
           type: string
       required:
         - url
-    PricingPortalInput:
-      type: object
-      properties:
-        userId:
-          type: string
-          minLength: 1
-      required:
-        - userId
     PricingPortalSession:
       type: object
       properties:
@@ -240,4 +234,13 @@ components:
         - regressedCount
         - resetCount
         - unchangedCount
+  securitySchemes:
+    clerkAuth:
+      type: http
+      scheme: bearer
+      description: >-
+        Clerk session token. Web clients send the session cookie
+        automatically; mobile clients attach it as a Bearer token. The server
+        resolves the authenticated userId from this token — it is never
+        accepted from the request body/path/params.
 

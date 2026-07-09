@@ -18,13 +18,9 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * Returns the current pricing level and monthly progress for a user. Creates a default Level 1 (currentLevel 0) row if none exists yet.
- * @summary Get pricing state
+ * Returns the current pricing level and monthly progress for the authenticated caller (identified from the Clerk session, never from a client-supplied identifier). Creates a default Level 1 (currentLevel 0) row if none exists yet.
+ * @summary Get pricing state for the authenticated user
  */
-export const GetPricingStateParams = zod.object({
-  "userId": zod.coerce.string()
-})
-
 export const getPricingStateResponseCurrentLevelMin = 0;
 export const getPricingStateResponseCurrentLevelMax = 11;
 
@@ -49,33 +45,18 @@ export const GetPricingStateResponse = zod.object({
 
 
 /**
+ * Operates on the authenticated caller only (Clerk session). The Stripe customer email is taken from the authenticated user's Clerk profile.
  * @summary Create a Stripe Checkout session for the current level's price
  */
-
-export const createPricingCheckoutBodyEmailMin = 3;
-
-
-
-export const CreatePricingCheckoutBody = zod.object({
-  "userId": zod.string().min(1),
-  "email": zod.string().min(createPricingCheckoutBodyEmailMin)
-})
-
 export const CreatePricingCheckoutResponse = zod.object({
   "url": zod.string()
 })
 
 
 /**
+ * Operates on the authenticated caller only (Clerk session) — never on a userId supplied by the client.
  * @summary Create a Stripe customer portal session (cancel/manage billing)
  */
-
-
-
-export const CreatePricingPortalSessionBody = zod.object({
-  "userId": zod.string().min(1)
-})
-
 export const CreatePricingPortalSessionResponse = zod.object({
   "url": zod.string()
 })

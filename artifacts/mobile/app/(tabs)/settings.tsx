@@ -37,15 +37,12 @@ const STATUS_LABEL_KEY: Record<string, string> = {
 function SubscriptionSection() {
   const colors = useColors();
   const { t } = useTranslation();
-  const { userId } = useApp();
 
-  const { data, isLoading, error } = useGetPricingState(userId ?? "", {
-    query: { enabled: !!userId, queryKey: ["pricing-state", userId] },
-  });
+  const { data, isLoading, error } = useGetPricingState();
   const checkoutMutation = useCreatePricingCheckout();
   const portalMutation = useCreatePricingPortalSession();
 
-  if (!userId || isLoading) {
+  if (isLoading) {
     return (
       <View style={[styles.card, { backgroundColor: colors.card, paddingVertical: 20 }]}>
         <ActivityIndicator color={colors.primary} />
@@ -70,9 +67,7 @@ function SubscriptionSection() {
 
   const handleSubscribe = async () => {
     try {
-      const session = await checkoutMutation.mutateAsync({
-        data: { userId, email: `${userId}@device.19sessions.app` },
-      });
+      const session = await checkoutMutation.mutateAsync();
       await WebBrowser.openBrowserAsync(session.url);
     } catch {
       Alert.alert(t("pricing.openError"));
@@ -81,7 +76,7 @@ function SubscriptionSection() {
 
   const handleManage = async () => {
     try {
-      const session = await portalMutation.mutateAsync({ data: { userId } });
+      const session = await portalMutation.mutateAsync();
       await WebBrowser.openBrowserAsync(session.url);
     } catch {
       Alert.alert(t("pricing.openError"));

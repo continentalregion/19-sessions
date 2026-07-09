@@ -1,5 +1,6 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type RequestHandler } from "express";
 import { and, eq, gte, lt } from "drizzle-orm";
+import { getAuth, clerkClient } from "@clerk/express";
 import {
   db,
   pricingStateTable,
@@ -9,9 +10,7 @@ import {
 } from "@workspace/db";
 import {
   GetPricingStateResponse,
-  CreatePricingCheckoutBody,
   CreatePricingCheckoutResponse,
-  CreatePricingPortalSessionBody,
   CreatePricingPortalSessionResponse,
   RunPricingCycleResponse,
 } from "@workspace/api-zod";
@@ -24,6 +23,28 @@ import {
 } from "../lib/pricingStateMachine";
 
 const router: IRouter = Router();
+
+/**
+ * All /pricing/* endpoints below (except the cron-only cycle-all) derive
+ * userId exclusively from the verified Clerk session via getAuth(req) --
+ * never from req.body/req.params/req.query. This is a deliberate security
+ * boundary: a client-supplied userId would let anyone read/modify/cancel
+ * another user's subscription (IDOR).
+ *
+ * Deliberately NOT using @clerk/express's requireAuth() middleware here: in
+ * dev instances it performs a browser "handshake" redirect (302) on
+ * missing/invalid tokens instead of a plain 401, which breaks API/mobile
+ * clients that expect JSON. Checking getAuth(req) manually keeps these
+ * endpoints pure JSON API routes.
+ */
+const requireAuth: RequestHandler = (req, res, next) => {
+  const { userId } = getAuth(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  next();
+};
 
 async function getOrCreatePricingState(userId: string) {
   const [existing] = await db
@@ -63,11 +84,10 @@ async function getOrCreatePricingState(userId: string) {
   return row!;
 }
 
-router.get("/pricing/state/:userId", async (req, res): Promise<void> => {
-  const raw = req.params["userId"];
-  const userId = Array.isArray(raw) ? raw[0] : raw;
+router.get("/pricing/state", requireAuth, async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
   if (!userId) {
-    res.status(400).json({ error: "userId is required" });
+    res.status(401).json({ error: "Not authenticated" });
     return;
   }
 
@@ -95,14 +115,22 @@ router.get("/pricing/state/:userId", async (req, res): Promise<void> => {
   );
 });
 
-router.post("/pricing/checkout", async (req, res): Promise<void> => {
-  const parsed = CreatePricingCheckoutBody.safeParse(req.body);
-  if (!parsed.success) {
-    req.log.warn({ errors: parsed.error.message }, "Invalid checkout body");
-    res.status(400).json({ error: parsed.error.message });
+router.post("/pricing/checkout", requireAuth, async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
     return;
   }
-  const { userId, email } = parsed.data;
+
+  const clerkUser = await clerkClient.users.getUser(userId);
+  const email =
+    clerkUser.primaryEmailAddress?.emailAddress ??
+    clerkUser.emailAddresses[0]?.emailAddress;
+  if (!email) {
+    req.log.error({ userId }, "Clerk user has no email address");
+    res.status(400).json({ error: "Account has no email address on file" });
+    return;
+  }
 
   const state = await getOrCreatePricingState(userId);
   const stripe = await getUncachableStripeClient();
@@ -166,17 +194,17 @@ router.post("/pricing/checkout", async (req, res): Promise<void> => {
   res.json(CreatePricingCheckoutResponse.parse({ url: session.url ?? "" }));
 });
 
-router.post("/pricing/portal", async (req, res): Promise<void> => {
-  const parsed = CreatePricingPortalSessionBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+router.post("/pricing/portal", requireAuth, async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
     return;
   }
 
   const [subscription] = await db
     .select()
     .from(subscriptionsTable)
-    .where(eq(subscriptionsTable.userId, parsed.data.userId));
+    .where(eq(subscriptionsTable.userId, userId));
 
   if (!subscription) {
     res.status(404).json({ error: "No Stripe customer for this user" });

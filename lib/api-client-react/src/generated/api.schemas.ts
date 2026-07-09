@@ -56,20 +56,8 @@ export interface PricingState {
   subscriptionStatus: PricingStateSubscriptionStatus;
 }
 
-export interface PricingCheckoutInput {
-  /** @minLength 1 */
-  userId: string;
-  /** @minLength 3 */
-  email: string;
-}
-
 export interface PricingCheckoutSession {
   url: string;
-}
-
-export interface PricingPortalInput {
-  /** @minLength 1 */
-  userId: string;
 }
 
 export interface PricingPortalSession {

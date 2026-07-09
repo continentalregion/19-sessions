@@ -8,10 +8,8 @@
 
 export * from './errorResponse';
 export * from './healthStatus';
-export * from './pricingCheckoutInput';
 export * from './pricingCheckoutSession';
 export * from './pricingCycleResult';
-export * from './pricingPortalInput';
 export * from './pricingPortalSession';
 export * from './pricingState';
 export * from './pricingStateSubscriptionStatus';

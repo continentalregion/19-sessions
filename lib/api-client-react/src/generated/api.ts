@@ -22,16 +22,14 @@ import type {
 import type {
   ErrorResponse,
   HealthStatus,
-  PricingCheckoutInput,
   PricingCheckoutSession,
   PricingCycleResult,
-  PricingPortalInput,
   PricingPortalSession,
   PricingState
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
-import type { ErrorType , BodyType } from '../custom-fetch';
+import type { ErrorType } from '../custom-fetch';
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -135,21 +133,21 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
-export const getGetPricingStateUrl = (userId: string,) => {
+export const getGetPricingStateUrl = () => {
 
 
 
 
-  return `/api/pricing/state/${userId}`
+  return `/api/pricing/state`
 }
 
 /**
- * Returns the current pricing level and monthly progress for a user. Creates a default Level 1 (currentLevel 0) row if none exists yet.
- * @summary Get pricing state
+ * Returns the current pricing level and monthly progress for the authenticated caller (identified from the Clerk session, never from a client-supplied identifier). Creates a default Level 1 (currentLevel 0) row if none exists yet.
+ * @summary Get pricing state for the authenticated user
  */
-export const getPricingState = async (userId: string, options?: RequestInit): Promise<PricingState> => {
+export const getPricingState = async ( options?: RequestInit): Promise<PricingState> => {
 
-  return customFetch<PricingState>(getGetPricingStateUrl(userId),
+  return customFetch<PricingState>(getGetPricingStateUrl(),
   {
     ...options,
     method: 'GET'
@@ -162,45 +160,45 @@ export const getPricingState = async (userId: string, options?: RequestInit): Pr
 
 
 
-export const getGetPricingStateQueryKey = (userId: string,) => {
+export const getGetPricingStateQueryKey = () => {
     return [
-    `/api/pricing/state/${userId}`
+    `/api/pricing/state`
     ] as const;
     }
 
 
-export const getGetPricingStateQueryOptions = <TData = Awaited<ReturnType<typeof getPricingState>>, TError = ErrorType<unknown>>(userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPricingState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetPricingStateQueryOptions = <TData = Awaited<ReturnType<typeof getPricingState>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPricingState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetPricingStateQueryKey(userId);
+  const queryKey =  queryOptions?.queryKey ?? getGetPricingStateQueryKey();
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPricingState>>> = ({ signal }) => getPricingState(userId, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPricingState>>> = ({ signal }) => getPricingState({ signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, enabled: userId !== null && userId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPricingState>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPricingState>>, TError, TData> & { queryKey: QueryKey }
 }
 
 export type GetPricingStateQueryResult = NonNullable<Awaited<ReturnType<typeof getPricingState>>>
-export type GetPricingStateQueryError = ErrorType<unknown>
+export type GetPricingStateQueryError = ErrorType<ErrorResponse>
 
 
 /**
- * @summary Get pricing state
+ * @summary Get pricing state for the authenticated user
  */
 
-export function useGetPricingState<TData = Awaited<ReturnType<typeof getPricingState>>, TError = ErrorType<unknown>>(
- userId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPricingState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useGetPricingState<TData = Awaited<ReturnType<typeof getPricingState>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPricingState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetPricingStateQueryOptions(userId,options)
+  const queryOptions = getGetPricingStateQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -222,16 +220,17 @@ export const getCreatePricingCheckoutUrl = () => {
 }
 
 /**
+ * Operates on the authenticated caller only (Clerk session). The Stripe customer email is taken from the authenticated user's Clerk profile.
  * @summary Create a Stripe Checkout session for the current level's price
  */
-export const createPricingCheckout = async (pricingCheckoutInput: PricingCheckoutInput, options?: RequestInit): Promise<PricingCheckoutSession> => {
+export const createPricingCheckout = async ( options?: RequestInit): Promise<PricingCheckoutSession> => {
 
   return customFetch<PricingCheckoutSession>(getCreatePricingCheckoutUrl(),
   {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(pricingCheckoutInput)
+    method: 'POST'
+
+
   }
 );}
 
@@ -240,8 +239,8 @@ export const createPricingCheckout = async (pricingCheckoutInput: PricingCheckou
 
 
 export const getCreatePricingCheckoutMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPricingCheckout>>, TError,{data: BodyType<PricingCheckoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createPricingCheckout>>, TError,{data: BodyType<PricingCheckoutInput>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPricingCheckout>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPricingCheckout>>, TError,void, TContext> => {
 
 const mutationKey = ['createPricingCheckout'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -253,10 +252,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPricingCheckout>>, {data: BodyType<PricingCheckoutInput>}> = (props) => {
-          const {data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPricingCheckout>>, void> = () => {
 
-          return  createPricingCheckout(data,requestOptions)
+
+          return  createPricingCheckout(requestOptions)
         }
 
 
@@ -267,18 +266,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CreatePricingCheckoutMutationResult = NonNullable<Awaited<ReturnType<typeof createPricingCheckout>>>
-    export type CreatePricingCheckoutMutationBody = BodyType<PricingCheckoutInput>
+
     export type CreatePricingCheckoutMutationError = ErrorType<ErrorResponse>
 
     /**
  * @summary Create a Stripe Checkout session for the current level's price
  */
 export const useCreatePricingCheckout = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPricingCheckout>>, TError,{data: BodyType<PricingCheckoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPricingCheckout>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createPricingCheckout>>,
         TError,
-        {data: BodyType<PricingCheckoutInput>},
+        void,
         TContext
       > => {
       return useMutation(getCreatePricingCheckoutMutationOptions(options));
@@ -293,16 +292,17 @@ export const getCreatePricingPortalSessionUrl = () => {
 }
 
 /**
+ * Operates on the authenticated caller only (Clerk session) — never on a userId supplied by the client.
  * @summary Create a Stripe customer portal session (cancel/manage billing)
  */
-export const createPricingPortalSession = async (pricingPortalInput: PricingPortalInput, options?: RequestInit): Promise<PricingPortalSession> => {
+export const createPricingPortalSession = async ( options?: RequestInit): Promise<PricingPortalSession> => {
 
   return customFetch<PricingPortalSession>(getCreatePricingPortalSessionUrl(),
   {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(pricingPortalInput)
+    method: 'POST'
+
+
   }
 );}
 
@@ -311,8 +311,8 @@ export const createPricingPortalSession = async (pricingPortalInput: PricingPort
 
 
 export const getCreatePricingPortalSessionMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPricingPortalSession>>, TError,{data: BodyType<PricingPortalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createPricingPortalSession>>, TError,{data: BodyType<PricingPortalInput>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPricingPortalSession>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPricingPortalSession>>, TError,void, TContext> => {
 
 const mutationKey = ['createPricingPortalSession'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -324,10 +324,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPricingPortalSession>>, {data: BodyType<PricingPortalInput>}> = (props) => {
-          const {data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPricingPortalSession>>, void> = () => {
 
-          return  createPricingPortalSession(data,requestOptions)
+
+          return  createPricingPortalSession(requestOptions)
         }
 
 
@@ -338,18 +338,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CreatePricingPortalSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createPricingPortalSession>>>
-    export type CreatePricingPortalSessionMutationBody = BodyType<PricingPortalInput>
+
     export type CreatePricingPortalSessionMutationError = ErrorType<ErrorResponse>
 
     /**
  * @summary Create a Stripe customer portal session (cancel/manage billing)
  */
 export const useCreatePricingPortalSession = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPricingPortalSession>>, TError,{data: BodyType<PricingPortalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPricingPortalSession>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createPricingPortalSession>>,
         TError,
-        {data: BodyType<PricingPortalInput>},
+        void,
         TContext
       > => {
       return useMutation(getCreatePricingPortalSessionMutationOptions(options));
