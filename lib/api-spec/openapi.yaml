@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: pricing
+    description: 19 Sessions pricing state machine and Stripe billing
 paths:
   /healthz:
     get:
@@ -24,6 +26,106 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /pricing/state/{userId}:
+    get:
+      operationId: getPricingState
+      tags: [pricing]
+      summary: Get pricing state
+      description: >-
+        Returns the current pricing level and monthly progress for a user.
+        Creates a default Level 1 (currentLevel 0) row if none exists yet.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pricing state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PricingState"
+  /pricing/checkout:
+    post:
+      operationId: createPricingCheckout
+      tags: [pricing]
+      summary: Create a Stripe Checkout session for the current level's price
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PricingCheckoutInput"
+      responses:
+        "200":
+          description: Checkout session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PricingCheckoutSession"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /pricing/portal:
+    post:
+      operationId: createPricingPortalSession
+      tags: [pricing]
+      summary: Create a Stripe customer portal session (cancel/manage billing)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PricingPortalInput"
+      responses:
+        "200":
+          description: Portal session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PricingPortalSession"
+        "404":
+          description: No Stripe customer for this user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /pricing/cycle-all:
+    post:
+      operationId: runPricingCycle
+      tags: [pricing]
+      summary: Internal — run the monthly level advance/regress evaluation for all users
+      description: >-
+        Cron-only endpoint, not called by the mobile app. Must be invoked once a
+        month by a scheduled job (e.g. Replit Scheduled Deployment) with the
+        shared secret header. Evaluates each user's previous calendar month
+        (sessions completed, average reliability score), applies the level
+        transition, updates the 13th-month reset, and syncs the new price to
+        the user's active Stripe subscription.
+      parameters:
+        - name: x-cron-secret
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Cycle run summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PricingCycleResult"
+        "401":
+          description: Missing or invalid cron secret
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +135,109 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    PricingState:
+      type: object
+      description: >-
+        currentLevel is 0-11 (zero-based, data/logic convention). displayLevel
+        (currentLevel + 1, range 1-12) and priceEur are derived for UI display.
+      properties:
+        userId:
+          type: string
+        currentLevel:
+          type: integer
+          minimum: 0
+          maximum: 11
+        displayLevel:
+          type: integer
+          minimum: 1
+          maximum: 12
+        priceEur:
+          type: integer
+        cycleMonthCounter:
+          type: integer
+          minimum: 0
+          maximum: 11
+        subscriptionStartedAt:
+          type: ["string", "null"]
+          format: date-time
+        lastMonthCompleted:
+          type: boolean
+        avgReliabilityScoreMonth:
+          type: ["number", "null"]
+        subscriptionStatus:
+          type: ["string", "null"]
+          enum: ["active", "canceled", "past_due", "incomplete", null]
+      required:
+        - userId
+        - currentLevel
+        - displayLevel
+        - priceEur
+        - cycleMonthCounter
+        - subscriptionStartedAt
+        - lastMonthCompleted
+        - avgReliabilityScoreMonth
+        - subscriptionStatus
+    PricingCheckoutInput:
+      type: object
+      properties:
+        userId:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          minLength: 3
+      required:
+        - userId
+        - email
+    PricingCheckoutSession:
+      type: object
+      properties:
+        url:
+          type: string
+      required:
+        - url
+    PricingPortalInput:
+      type: object
+      properties:
+        userId:
+          type: string
+          minLength: 1
+      required:
+        - userId
+    PricingPortalSession:
+      type: object
+      properties:
+        url:
+          type: string
+      required:
+        - url
+    PricingCycleResult:
+      type: object
+      properties:
+        processedCount:
+          type: integer
+        advancedCount:
+          type: integer
+        doubleAdvancedCount:
+          type: integer
+        regressedCount:
+          type: integer
+        resetCount:
+          type: integer
+        unchangedCount:
+          type: integer
+      required:
+        - processedCount
+        - advancedCount
+        - doubleAdvancedCount
+        - regressedCount
+        - resetCount
+        - unchangedCount
 

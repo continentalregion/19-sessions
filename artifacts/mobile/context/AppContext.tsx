@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Crypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 import React, {
   createContext,
@@ -19,6 +20,7 @@ import { setSpeechLanguage } from "@/utils/speech";
 
 const GOAL_STORAGE_KEY = "training_goal_profile";
 const LANGUAGE_STORAGE_KEY = "app_language";
+const USER_ID_STORAGE_KEY = "device_user_id";
 const GOAL_CHANGE_LOCK_DAYS = 30;
 
 interface TrainingGoalProfile {
@@ -35,6 +37,7 @@ interface AppContextValue {
   nextGoalChangeDate: Date | null;
   language: SupportedLanguage;
   setLanguage: (lang: SupportedLanguage) => Promise<void>;
+  userId: string | null;
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -58,17 +61,41 @@ async function setPersistedLanguage(lang: SupportedLanguage): Promise<void> {
   await SecureStore.setItemAsync(LANGUAGE_STORAGE_KEY, lang);
 }
 
+async function getPersistedUserId(): Promise<string | null> {
+  if (isWeb) return AsyncStorage.getItem(USER_ID_STORAGE_KEY);
+  return SecureStore.getItemAsync(USER_ID_STORAGE_KEY);
+}
+
+async function setPersistedUserId(userId: string): Promise<void> {
+  if (isWeb) {
+    await AsyncStorage.setItem(USER_ID_STORAGE_KEY, userId);
+    return;
+  }
+  await SecureStore.setItemAsync(USER_ID_STORAGE_KEY, userId);
+}
+
+async function getOrCreateUserId(): Promise<string> {
+  const existing = await getPersistedUserId();
+  if (existing) return existing;
+
+  const generated = Crypto.randomUUID();
+  await setPersistedUserId(generated);
+  return generated;
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const [profile, setProfile] = useState<TrainingGoalProfile | null>(null);
   const [language, setLanguageState] = useState<SupportedLanguage>("it");
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [storedProfile, storedLanguage] = await Promise.all([
+        const [storedProfile, storedLanguage, resolvedUserId] = await Promise.all([
           AsyncStorage.getItem(GOAL_STORAGE_KEY),
           getPersistedLanguage(),
+          getOrCreateUserId(),
         ]);
 
         if (storedProfile) {
@@ -81,6 +108,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLanguageState(resolvedLanguage);
         i18n.changeLanguage(resolvedLanguage);
         setSpeechLanguage(resolvedLanguage);
+        setUserId(resolvedUserId);
       } finally {
         setIsReady(true);
       }
@@ -123,8 +151,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       nextGoalChangeDate,
       language,
       setLanguage,
+      userId,
     };
-  }, [isReady, profile, language]);
+  }, [isReady, profile, language, userId]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

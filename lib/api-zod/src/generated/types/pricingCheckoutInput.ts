@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface PricingCheckoutInput {
+  /** @minLength 1 */
+  userId: string;
+  /** @minLength 3 */
+  email: string;
 }

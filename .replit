@@ -22,3 +22,8 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+CRON_SECRET = "20693ad24649b60d2e6d8daa6c4a73ad02caf5f2cc978e85455d0788add4ba9e"

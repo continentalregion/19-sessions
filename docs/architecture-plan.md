@@ -321,9 +321,35 @@ l'utente lo richiede esplicitamente.
 
 ## Stato implementazione ad oggi
 
-- Fatto (in `artifacts/mobile`): onboarding obiettivo (goal picker, lock 30 giorni),
-  localizzazione it/en/es/zh (UI + TTS live via expo-speech), 4 circuiti placeholder,
+- Fatto (in `artifacts/mobile`): setup Expo + EAS, schema Drizzle (`artifacts/api-server` +
+  `lib/db`), pose estimation via camera (expo-camera + rilevamento pose), logica dei 4
+  circuiti fissi, scoring da accelerometro/reliability score, onboarding obiettivo (goal
+  picker, lock 30 giorni), localizzazione it/en/es/zh (UI + TTS live via expo-speech),
   session runner con timer lavoro/riposo.
-- Non ancora iniziato: EAS dev build, pose estimation reale, backend Fastify/Drizzle/
-  Neon, integrazione wearable, Stripe pricing state machine, anti-cheat (Play Integrity/
-  DeviceCheck), analisi statistica server-side.
+- Fatto (pricing/Stripe — sezione 6): backend completo in `artifacts/api-server`:
+  - `src/lib/stripeClient.ts` — client Stripe via connettore Replit (StripeSync gestisce
+    webhook + tabelle `stripe.*` in Postgres).
+  - `src/lib/pricingStateMachine.ts` — logica pura: 12 livelli (0–11 lato dati,
+    1–12 lato UI), prezzi da 139€ a 41€, regole di avanzamento/regressione/reset annuale
+    (`cycle_month_counter`).
+  - `src/routes/pricing.ts` — `GET /api/pricing/state/:userId`, `POST /api/pricing/checkout`
+    (Stripe Checkout), `POST /api/pricing/portal` (Customer Portal), `POST
+    /api/pricing/cycle-all` (cron mensile, protetto da header `x-cron-secret` +
+    `CRON_SECRET`).
+  - `scripts/src/seed-pricing-products.ts` — crea idempotentemente il prodotto Stripe e i
+    12 prezzi mensili EUR (tag `metadata.level`), già eseguito in ambiente dev.
+  - Verificato end-to-end manualmente: stato pricing, creazione Checkout Session, Customer
+    Portal, e ciclo mensile (avanzamento/regressione livello + aggiornamento subscription
+    su Stripe) tutti funzionanti contro l'account Stripe test collegato.
+  - Nota tecnica: `stripe-replit-sync` deve restare esterno al bundle esbuild
+    (`external` in `artifacts/api-server/build.mjs`) — la libreria risolve la cartella
+    `migrations` relativa al proprio `__dirname` a runtime, e il bundling la rompe
+    silenziosamente (nessuna migrazione applicata, nessun errore visibile finché non si
+    usano le tabelle `stripe.*`).
+  - Lato mobile: `context/AppContext.tsx` genera e persiste un `userId` (UUID v4 via
+    `expo-crypto`, salvato in SecureStore/AsyncStorage) come identità stabile per-device,
+    usata per tutte le chiamate di pricing. Sezione "Abbonamento" in
+    `app/(tabs)/settings.tsx` mostra livello/prezzo/stato e apre Checkout o Customer
+    Portal tramite `expo-web-browser`.
+- Non ancora iniziato: integrazione wearable (fase 2), anti-cheat (Play Integrity/
+  DeviceCheck), analisi statistica server-side avanzata.

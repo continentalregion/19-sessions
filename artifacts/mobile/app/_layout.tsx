@@ -15,7 +15,10 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider, useApp } from "@/context/AppContext";
+import { configureApiBaseUrl } from "@/lib/apiConfig";
 import "@/lib/i18n";
+
+configureApiBaseUrl();
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();

@@ -1,9 +1,23 @@
 import { Feather } from "@expo/vector-icons";
+import {
+  useCreatePricingCheckout,
+  useCreatePricingPortalSession,
+  useGetPricingState,
+} from "@workspace/api-client-react";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
@@ -12,6 +26,119 @@ import {
   SUPPORTED_LANGUAGES,
   type SupportedLanguage,
 } from "@/constants/translations";
+
+const STATUS_LABEL_KEY: Record<string, string> = {
+  active: "pricing.statusActive",
+  past_due: "pricing.statusPastDue",
+  canceled: "pricing.statusCanceled",
+  incomplete: "pricing.statusIncomplete",
+};
+
+function SubscriptionSection() {
+  const colors = useColors();
+  const { t } = useTranslation();
+  const { userId } = useApp();
+
+  const { data, isLoading, error } = useGetPricingState(userId ?? "", {
+    query: { enabled: !!userId, queryKey: ["pricing-state", userId] },
+  });
+  const checkoutMutation = useCreatePricingCheckout();
+  const portalMutation = useCreatePricingPortalSession();
+
+  if (!userId || isLoading) {
+    return (
+      <View style={[styles.card, { backgroundColor: colors.card, paddingVertical: 20 }]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <Text style={[styles.rowLabel, { color: colors.mutedForeground }]}>
+          {t("pricing.loadError")}
+        </Text>
+      </View>
+    );
+  }
+
+  const isActive = data.subscriptionStatus === "active";
+  const statusKey = data.subscriptionStatus
+    ? STATUS_LABEL_KEY[data.subscriptionStatus] ?? "pricing.statusIncomplete"
+    : "pricing.statusNone";
+
+  const handleSubscribe = async () => {
+    try {
+      const session = await checkoutMutation.mutateAsync({
+        data: { userId, email: `${userId}@device.19sessions.app` },
+      });
+      await WebBrowser.openBrowserAsync(session.url);
+    } catch {
+      Alert.alert(t("pricing.openError"));
+    }
+  };
+
+  const handleManage = async () => {
+    try {
+      const session = await portalMutation.mutateAsync({ data: { userId } });
+      await WebBrowser.openBrowserAsync(session.url);
+    } catch {
+      Alert.alert(t("pricing.openError"));
+    }
+  };
+
+  const pending = checkoutMutation.isPending || portalMutation.isPending;
+
+  return (
+    <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <View style={[styles.row, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+        <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+          {t("pricing.levelLabel")}
+        </Text>
+        <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>
+          {data.displayLevel}
+        </Text>
+      </View>
+      <View style={[styles.row, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+        <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+          {t("pricing.priceLabel")}
+        </Text>
+        <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>
+          €{data.priceEur}
+          {t("pricing.perMonth")}
+        </Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={[styles.rowLabel, { color: colors.foreground }]}>{t(statusKey)}</Text>
+      </View>
+      <Pressable
+        testID="pricing-action"
+        disabled={pending}
+        onPress={async () => {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          if (isActive) {
+            await handleManage();
+          } else {
+            await handleSubscribe();
+          }
+        }}
+        style={[
+          styles.changeGoalButton,
+          { backgroundColor: colors.accent, opacity: pending ? 0.6 : 1 },
+        ]}
+      >
+        {pending ? (
+          <ActivityIndicator color={colors.accentForeground} />
+        ) : (
+          <Text style={[styles.changeGoalText, { color: colors.accentForeground }]}>
+            {t(isActive ? "pricing.manage" : "pricing.subscribe")}
+          </Text>
+        )}
+      </Pressable>
+    </View>
+  );
+}
 
 function formatDate(date: Date, lang: SupportedLanguage) {
   const localeMap: Record<SupportedLanguage, string> = {
@@ -109,6 +236,11 @@ export default function SettingsScreen() {
           </Text>
         )
       )}
+
+      <Text style={[styles.sectionLabel, { color: colors.mutedForeground, marginTop: 24 }]}>
+        {t("pricing.sectionLabel")}
+      </Text>
+      <SubscriptionSection />
     </ScrollView>
   );
 }
