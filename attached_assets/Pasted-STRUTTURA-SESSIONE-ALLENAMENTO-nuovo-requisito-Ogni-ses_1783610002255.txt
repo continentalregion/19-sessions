@@ -1,0 +1,39 @@
+STRUTTURA SESSIONE ALLENAMENTO (nuovo requisito):
+
+- Ogni sessione è un CIRCUITO FISSO di esercizi BOSU (stessa sequenza 
+  per tutti gli utenti, non randomizzata né adattiva in questa fase)
+- Durata minima per considerare la sessione valida: 30-40 minuti totali
+- Il circuito deve includere VARIETÀ obbligatoria: esercizi da almeno 
+  3 categorie diverse (es. equilibrio/core, forza arti inferiori, 
+  forza arti superiori/plank) — non ripetizione dello stesso esercizio
+- Esempio struttura circuito (da raffinare con Francesco): 
+  8-10 esercizi x 3-4 minuti ciascuno con transizioni/riposo guidato, 
+  sequenza fissa e pubblica (stessa per tutti)
+- L'app guida l'utente attraverso il circuito con feedback live 
+  (voce/testo: "prossimo esercizio", "mantieni la posizione", ecc.)
+- Il video viene elaborato SOLO in tempo reale on-device (MediaPipe 
+  pose estimation) e MAI salvato, né su device né su server — 
+  nessuno storage video, nessun upload
+
+VALIDAZIONE SESSIONE (aggiornata):
+- Sessione valida SE: durata_totale >= soglia_minuti AND 
+  esercizi_completati >= soglia_circuito AND rep_valide per 
+  esercizio >= soglia_per_esercizio
+- Il backend riceve solo il riepilogo strutturato per esercizio 
+  (no video, no immagini) — stesso principio di prima ma esteso 
+  a multi-esercizio
+
+ANTI-CHEAT (rivisto — NIENTE spot-check video, dato che non si 
+salva nulla):
+- Play Integrity API (Android) / DeviceCheck (iOS) per attestazione 
+  dispositivo — invariato
+- Liveness check ON-DEVICE in tempo reale (rilevamento pattern di 
+  movimento naturale vs video in loop) — invariato, gira comunque 
+  live prima dello scarto
+- NUOVO: analisi statistica lato server sui SOLI dati aggregati 
+  (durata, timing tra esercizi, varianza rep-to-rep) per flaggare 
+  pattern anomali — unico meccanismo anti-cheat possibile lato 
+  server senza video
+- Considerare: firma/hash del riepilogo generato on-device con 
+  chiave legata all'attestazione dispositivo, per rendere più 
+  difficile falsificare il payload inviato al backend

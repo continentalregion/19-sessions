@@ -1,0 +1,62 @@
+Non usare subagent né testing monitor (costo token).
+
+CONTESTO: Sto avviando un nuovo progetto chiamato "19 Sessions", 
+terzo prodotto sotto TRANTADS LTD (CRN 17298502), separato da SGI 
+e TrantAds. Nessun repository GitHub esiste ancora — inizializza 
+solo un repo Git locale per ora.
+
+RICHIESTA: Voglio SOLO un piano architetturale dettagliato (diagnosi), 
+NON iniziare a scrivere codice in questa sessione.
+
+Il prodotto: app mobile fitness con validazione allenamenti BOSU 
+tramite computer vision in tempo reale (pose estimation on-device), 
+abilitata da un meccanismo di pricing incentivante basato sul 
+completamento di 19 sessioni/mese.
+
+Analizza e proponi architettura per queste aree, una per una:
+
+1. STACK MOBILE
+   - Expo React Native, MA richiede EAS dev build (NO Expo Go) 
+     per via di react-native-vision-camera + frame processor 
+     MediaPipe/pose estimation in tempo reale
+   - Verifica compatibilità versioni: vision-camera, MediaPipe 
+     pose landmarker o alternativa TFLite (MoveNet), Reanimated
+
+2. BACKEND
+   - Fastify + Drizzle ORM + Neon PostgreSQL (stesso pattern di SGI, 
+     ma database/progetto separato)
+   - Clerk per auth (stesso provider di SGI)
+
+3. SCHEMA DATI
+   - Tabella workout_sessions: user_id, exercise_type, reps_valid, 
+     reps_invalid, duration_seconds, avg_form_score, device_attestation_ok, 
+     created_at
+   - Tabella pricing_state: user_id, current_level (0-11), 
+     last_month_completed (bool), updated_at
+   - Tabella subscriptions: collegata a Stripe, nessun deposito, 
+     nessun rimborso — solo billing mensile con prezzo variabile
+
+4. LOGICA PRICING (da implementare come state machine)
+   - 12 livelli fissi: [139, 130, 121, 112, 103, 94, 86, 77, 68, 59, 50, 41] EUR
+   - Se sessioni_completate_mese >= 19: avanza di un livello il mese 
+     successivo (max livello 11)
+   - Se sessioni_completate_mese < 19: retrocede di un livello 
+     (min livello 0)
+   - Nessun rimborso negativo, nessun deposito trattenuto — solo 
+     billing Stripe mensile con importo dal livello corrente
+
+5. ANTI-CHEAT (solo pianifica, non implementare ora)
+   - Play Integrity API (Android) / DeviceCheck (iOS)
+   - Spot-check asincroni su frame campione
+
+6. COMPLIANCE (solo pianifica)
+   - Tabella prezzi completa e scenario peggiore/migliore da mostrare 
+     pre-checkout
+   - Cooling-off 14 giorni
+
+Alla fine del piano, indicami: 
+- ordine di sviluppo consigliato
+- eventuali rischi tecnici che vedi nello stack proposto
+- stima approssimativa tempo/complessità per ogni area
+
+Non scrivere codice, non fare build, solo il piano.
