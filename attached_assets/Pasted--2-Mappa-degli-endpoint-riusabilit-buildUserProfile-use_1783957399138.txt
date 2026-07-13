@@ -1,0 +1,83 @@
+ & 2 — Mappa degli endpoint + riusabilità
+buildUserProfile(userId) — users.ts:255–349
+Funzione condivisa già estratta. È chiamata da:
+
+GET /users/me (riga 79)
+POST /users/me sync (riga 61)
+GET /users/:clerkId (riga 473)
+Esegue 4 query in parallelo (Promise.all) e restituisce già:
+
+Campo	Tipo
+sgiScore	number
+sgiDailyDelta / sgiWeeklyDelta / sgiMonthlyDelta	number | null
+globalRank	number | null
+totalUsers	number (count leaderboardEntries)
+percentile	number | null
+rankChange30d	number | null
+macroDimensions	{ profondita, connettivita, precisione, revisione }
+→ Già riusabile con una semplice chiamata interna. Nessuna logica da estrarre.
+
+updateLeaderboardRank(userId) — users.ts:351 (exported)
+Non serve per B — è una funzione di write, non di read.
+
+GET /gamification/me — gamification.ts:131
+Logica inline, non estratta. Restituisce xp, level, streak, lastActiveDate, badges, missions. Per B bastano streak e level/xp. La logica è semplice (una query su gamification + badges), quindi si può replicare come query diretta senza dover chiamare l'endpoint internamente.
+
+GET /users/me/sgi-history — users.ts:87
+Logica inline, restituisce array grezzo di snapshots. Non serve per B — le delta di trend sono già in buildUserProfile().
+
+GET /leaderboard — leaderboard.ts:18
+Logica inline. Restituisce la lista globale + currentUserEntry con { rank, percentile, rankChange30d }. Ridondante con buildUserProfile() — tutti questi campi sono già disponibili lì. Non serve per B.
+
+GET /leaderboard/summary — leaderboard.ts:72
+Restituisce statistiche globali (totalUsers, averageSgi, topSgi, soglie top1%/top10%). Utile per B solo se si vuole mostrare "sei sopra la media globale" — ma richiede una query aggiuntiva. Da valutare se include o esclude.
+
+3 — Struttura dati minima per Component B
+Tutto derivabile in real-time senza nuova persistenza:
+
+{
+  "sgiScore": 72.3,
+  "sgiTrend": {
+    "daily":   0.5,
+    "weekly":  1.2,
+    "monthly": 3.1
+  },
+  "globalRank": 412,
+  "totalUsers": 1200,
+  "percentile": 65.8,
+  "rankChange30d": 18,
+  "macroDimensions": {
+    "profondita":  78,
+    "connettivita": 62,
+    "precisione":  71,
+    "revisione":   45
+  },
+  "topDimension": "profondita",
+  "level": 7,
+  "xp": 3420,
+  "streakDays": 14
+}
+
+topDimension: derivato in JS da Object.entries(macroDimensions).sort(…)[0] — zero costo
+level/xp/streakDays: 1 query aggiuntiva sulla tabella gamification (già in DB, nessun calcolo pesante)
+sgiTrend: già in buildUserProfile() come sgiDailyDelta/sgiWeeklyDelta/sgiMonthlyDelta
+Campo scartato: topN% (es. "sei nel top 10%") — calcolabile da percentile lato client, non serve persistenza né query separata.
+
+4 — Endpoint dedicato vs. campo aggiunto a /context-file/facts
+Scelta raccomandata: endpoint dedicato
+GET /users/me/context-file/public-summary
+
+Opzione	Pro	Contro
+Dedicato	Contratto pulito, evolvibile indipendentemente, Pro-gating separato, response shape stabile per il client mobile	Un endpoint in più da mantenere
+Campo aggiunto a /facts	Un endpoint di meno	Mescola CRUD con aggregazione; il client deve distinguere tipo di dato nella stessa risposta; più difficile da cachare selettivamente
+Il pattern delle route context-file esistenti (/facts, /inferred-facts, /domains) è già a endpoint separati per tipo — aggiungere /public-summary è coerente.
+
+Implementazione effettiva: chiama buildUserProfile(user.id) + 1 query diretta su gamification WHERE userId = user.id — tutto in Promise.all, latenza ~80ms warm (uguale a /users/me).
+
+5 — Dipendenze, rischi e discrepanze note
+Rischio	Dettaglio
+percentile usa count(leaderboardEntries), non count(users)	Solo gli utenti con globalRank != null entrano nel denominatore. Chi non ha ancora un rank non conta. È una discrepanza nota e coerente in tutto il progetto — non è un bug, ma un fact per il client.
+rankChange30d può essere null	Se l'utente ha meno di 30 giorni di storia rankizzata. Il client mobile deve null-guardare.
+macroDimensions può essere all-zeros	Se non esiste ancora nessuno sgiSnapshot con dimensioni (utente nuovo). Già gestito: buildUserProfile ritorna { profondita: 0, connettivita: 0, precisione: 0, revisione: 0 } come fallback.
+Nessun N+1	buildUserProfile fa 4 query in parallelo; aggiungendo gamification diventa 5 in Promise.all — nessun impatto percettibile.
+/leaderboard/summary ha cache in-memory	Quella cache (thresholdCache, 3 min TTL) è locale al processo. Se si vuole includere averageSgi o topSgi in B, conviene rifare la query diretta piuttosto che dipendere da quella cache — la query è semplice (avg + max su leaderboardEntries).
