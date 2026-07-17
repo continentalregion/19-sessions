@@ -1,32 +1,33 @@
 /**
  * 19 Sessions pricing state machine — pure logic module.
  *
- * Source of truth for the level/pricing rules: docs/architecture-plan.md §5-7.
+ * New model (replaces the 12-level advance/regress system):
+ * - Price is determined FRESH each month from the previous month's session count.
+ * - No cycle counter, no reliability score, no gradual level progression.
+ * - Lookup: sessionsCompletedMonth → level (0-10) → EUR price.
+ * - Retrogression is implicit: any month with < 9 sessions resets to Level 0 (250 EUR).
  *
- * - 12 levels, zero-based (0-11) in data/logic. UI shows "Livello 1-12" (level + 1).
- * - PRICING_LEVELS_EUR[level] is the monthly EUR price for that level.
- * - Evaluation runs once per completed calendar month, per user:
- *   - Advance 2 levels if sessionsCompleted >= 19 AND avgReliabilityScore >= 1.4
- *   - Advance 1 level if sessionsCompleted >= 19 but avgReliabilityScore < 1.4
- *   - Retreat 1 level (floor 0) if sessionsCompleted < 19
- *   - cycleMonthCounter increments each evaluated month; at the 13th month
- *     (cycleMonthCounter reaching 12) the cycle resets: currentLevel -> 0,
- *     cycleMonthCounter -> 0, subscriptionStartedAt -> now.
- * - No deposits, no negative refunds — Stripe only ever bills the current
- *   level's monthly price going forward.
+ * Level mapping (zero-based):
+ *   Level 0: 250 EUR  — sessions ≤ 8
+ *   Level 1: 139 EUR  — sessions = 9
+ *   Level 2:  79 EUR  — sessions = 10
+ *   Level 3:  47 EUR  — sessions = 11
+ *   Level 4:  30 EUR  — sessions = 12
+ *   Level 5:  21 EUR  — sessions = 13
+ *   Level 6:  16 EUR  — sessions = 14
+ *   Level 7:  13 EUR  — sessions = 15
+ *   Level 8:  12 EUR  — sessions = 16
+ *   Level 9:  11 EUR  — sessions = 17
+ *   Level 10: 10 EUR  — sessions ≥ 18
  */
 
 export const MIN_LEVEL = 0;
-export const MAX_LEVEL = 11;
+export const MAX_LEVEL = 10;
 export const LEVEL_COUNT = MAX_LEVEL - MIN_LEVEL + 1;
-export const CYCLE_MONTHS = 12;
 
-export const MIN_SESSIONS_FOR_ADVANCE = 19;
-export const MIN_RELIABILITY_FOR_DOUBLE_ADVANCE = 1.4;
-
-/** Monthly price in EUR, indexed by zero-based level 0-11. */
+/** Monthly price in EUR, indexed by zero-based level 0-10. */
 export const PRICING_LEVELS_EUR: readonly number[] = [
-  139, 130, 121, 112, 103, 94, 86, 77, 68, 59, 50, 41,
+  250, 139, 79, 47, 30, 21, 16, 13, 12, 11, 10,
 ];
 
 export function clampLevel(level: number): number {
@@ -37,77 +38,38 @@ export function priceForLevel(level: number): number {
   return PRICING_LEVELS_EUR[clampLevel(level)] as number;
 }
 
+/** User-facing label: level 0 → "1", level 10 → "11" */
 export function displayLevel(level: number): number {
   return clampLevel(level) + 1;
 }
 
+/**
+ * Maps a session count to the corresponding pricing level.
+ * sessions ≤ 8 → Level 0 (250 EUR, full price)
+ * sessions 9–17 → Levels 1–9 (exponential discount curve)
+ * sessions ≥ 18 → Level 10 (floor: 10 EUR)
+ */
+export function sessionsToLevel(sessions: number): number {
+  if (sessions <= 8) return 0;
+  if (sessions >= 18) return MAX_LEVEL;
+  // sessions 9-17 map to levels 1-9
+  return sessions - 8;
+}
+
 export type MonthEvaluationInput = {
-  currentLevel: number;
-  cycleMonthCounter: number;
   sessionsCompletedMonth: number;
-  avgReliabilityScoreMonth: number | null;
 };
 
-export type MonthTransition =
-  | "advanced_double"
-  | "advanced_single"
-  | "regressed"
-  | "reset";
-
 export type MonthEvaluationResult = {
-  transition: MonthTransition;
   nextLevel: number;
-  nextCycleMonthCounter: number;
-  cycleReset: boolean;
 };
 
 /**
  * Evaluates a single completed calendar month for one user and returns the
- * next pricing state. Does not mutate input; callers persist the result and
- * decide whether/how to sync it to Stripe.
+ * next pricing level. Pure function — callers persist the result and sync to Stripe.
  */
 export function evaluateMonth(input: MonthEvaluationInput): MonthEvaluationResult {
-  const { currentLevel, cycleMonthCounter, sessionsCompletedMonth, avgReliabilityScoreMonth } =
-    input;
-
-  const qualifies = sessionsCompletedMonth >= MIN_SESSIONS_FOR_ADVANCE;
-  const bonusQualifies =
-    qualifies &&
-    avgReliabilityScoreMonth != null &&
-    avgReliabilityScoreMonth >= MIN_RELIABILITY_FOR_DOUBLE_ADVANCE;
-
-  let transition: MonthTransition;
-  let nextLevel: number;
-
-  if (bonusQualifies) {
-    transition = "advanced_double";
-    nextLevel = clampLevel(currentLevel - 2);
-  } else if (qualifies) {
-    transition = "advanced_single";
-    nextLevel = clampLevel(currentLevel - 1);
-  } else {
-    transition = "regressed";
-    nextLevel = clampLevel(currentLevel + 1);
-  }
-
-  const nextCounter = cycleMonthCounter + 1;
-
-  // 13th month of the subscription cycle: reset to level 0, restart the cycle.
-  if (nextCounter >= CYCLE_MONTHS) {
-    return {
-      transition: "reset",
-      nextLevel: MIN_LEVEL,
-      nextCycleMonthCounter: 0,
-      cycleReset: true,
-    };
-  }
-
-  return {
-    transition,
-    nextLevel,
-    nextCycleMonthCounter: nextCounter,
-    cycleReset: false,
-  };
+  return { nextLevel: sessionsToLevel(input.sessionsCompletedMonth) };
 }
 
 /** Returns the [start, end) UTC bounds of the previous full calendar month relative to `now`. */

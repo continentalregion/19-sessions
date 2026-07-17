@@ -1,54 +1,48 @@
-# 19 Sessions — Piano architetturale complessivo
+# 19 Sessions BOSU — Piano architetturale complessivo
 
-Stato: **PIANO / non ancora in build mode.** Questo documento raccoglie le decisioni
-architetturali per la fase futura (CV, backend, pricing, anti-cheat). Non implementare
-nulla di questo documento finché non viene esplicitamente richiesto di passare alla
-build.
+Stato: **IN BUILD.** Questo documento è la fonte di verità sulle decisioni architetturali
+già implementate e in corso. Aggiornato a luglio 2026.
 
 Contesto prodotto: terzo prodotto sotto TRANTADS LTD (CRN 17298502), separato da SGI e
-TrantAds. App mobile fitness con validazione allenamenti BOSU tramite computer vision
-on-device, abilitata da un meccanismo di pricing incentivante basato sul completamento
-di 19 sessioni/mese.
+TrantAds. App mobile fitness con validazione allenamenti BOSU tramite Health Connect
+(Android) / HealthKit (iOS), abbinata a un meccanismo di pricing incentivante basato sul
+conteggio sessioni mensile.
 
 ## 1. Stack mobile
 
-- Expo React Native, ma richiede **EAS dev build** (no Expo Go) per
-  `react-native-vision-camera` + frame processor pose estimation in tempo reale
-  (MediaPipe pose landmarker o alternativa TFLite/MoveNet).
-- Verificare compatibilità versioni: vision-camera, MediaPipe/TFLite, Reanimated.
+- Expo React Native + EAS dev build (richiesto per `react-native-health-connect` /
+  `react-native-health` — non disponibili in Expo Go).
+- **Session validation**: `react-native-health-connect` (Android, ExerciseSession) +
+  `react-native-health` (iOS, getAnchoredWorkouts). La validazione camera/pose
+  estimation/accelerometro è stata **definitivamente rimossa** in Phase 2.
+- Localizzazione: `react-i18next`, 4 lingue (it/en/es/zh).
 
 ## 2. Backend
 
-- Fastify + Drizzle ORM + Neon PostgreSQL (stesso pattern di SGI, database/progetto
-  separato).
-- Clerk per auth (stesso provider di SGI).
+- Express 5 + Drizzle ORM + PostgreSQL (Replit managed).
+- Clerk per auth (token di sessione verificato server-side su tutte le route protette).
 
 ## 3. Struttura sessione di allenamento
 
 - Ogni sessione è un **circuito fisso** di esercizi BOSU (stessa sequenza per tutti gli
   utenti, non randomizzata né adattiva in questa fase).
-- Durata minima per considerare la sessione valida: 30–40 minuti totali.
-- Il circuito deve includere varietà obbligatoria: esercizi da almeno 3 categorie
-  diverse (es. equilibrio/core, forza arti inferiori, forza arti superiori/plank) — non
-  ripetizione dello stesso esercizio.
-- Esempio struttura (da raffinare con Francesco): 8–10 esercizi x 3–4 minuti ciascuno
-  con transizioni/riposo guidato, sequenza fissa e pubblica (stessa per tutti).
-- **Definizione definitiva dei 4 circuiti fissi** (implementata in
-  `artifacts/mobile/constants/circuits.ts`). Sequenza, esercizi e categorie sono la
-  fonte di verità; le durate sotto sono il **ritmo calibrato per principianti**
-  (sostituisce una prima bozza più aggressiva a 4 min/esercizio, corretta dopo
-  revisione prodotto per accessibilità):
+- Durata minima per considerare la sessione **valida**: **15 minuti** di attività fisica
+  continua rilevata da Health Connect/HealthKit (ExerciseSession o HKWorkout con
+  duration ≥ 900s, trovata nella finestra temporale della sessione).
+- L'app guida l'utente attraverso il circuito con feedback live (voce/testo localizzato
+  in 4 lingue via expo-speech/TTS).
+
+  **Definizione definitiva dei 4 circuiti fissi** (implementata in
+  `artifacts/mobile/constants/circuits.ts`). Le durate sono calibrate per principianti:
 
   - **Circuiti "standard"** (Muscle Tone, Posture): lavoro **3 min (180s)** per
-    esercizio, pausa **30s** tra esercizi, riscaldamento/defaticamento **3 min
-    (180s)**. Totale: 8 × (180+30) + 180 = 1860s = **~31 min**.
-  - **Circuiti "cardio"** (Cardio General, Weight Loss): lavoro **170s** per
-    esercizio, pausa **25s** tra esercizi, riscaldamento/defaticamento **4 min
-    (240s)** — leggermente più lungo per compensare l'intensità cardio. Totale:
+    esercizio, pausa **30s** tra esercizi, riscaldamento/defaticamento **3 min (180s)**.
+    Totale: 8 × (180+30) + 180 = 1860s = **~31 min**.
+  - **Circuiti "cardio"** (Cardio General, Weight Loss): lavoro **170s** per esercizio,
+    pausa **25s** tra esercizi, riscaldamento/defaticamento **4 min (240s)**. Totale:
     8 × (170+25) + 240 = 1800s = **~30 min**.
-  - Entrambi i profili rientrano nel range 30–40 min richiesto sopra.
 
-  ### Circuito 1 — Muscle Tone (tono muscolare), ~31 min totali, più forza / meno cardio puro
+  ### Circuito 1 — Muscle Tone (tono muscolare), ~31 min totali
 
   | # | Esercizio | Durata lavoro | Pausa | Categoria |
   |---|---|---|---|---|
@@ -62,7 +56,7 @@ di 19 sessioni/mese.
   | 8 | Side plank su BOSU | 180s | 30s | Core/equilibrio |
   | — | Riscaldamento + defaticamento | 180s | — | — |
 
-  ### Circuito 2 — Posture (postura), ~31 min totali, focus core/equilibrio/stabilizzazione
+  ### Circuito 2 — Posture (postura), ~31 min totali
 
   | # | Esercizio | Durata lavoro | Pausa | Categoria |
   |---|---|---|---|---|
@@ -76,7 +70,7 @@ di 19 sessioni/mese.
   | 8 | Cat-cow su BOSU | 180s | 30s | Mobilità |
   | — | Riscaldamento + defaticamento | 180s | — | — |
 
-  ### Circuito 3 — Cardio General, ~30 min totali, meno pause, intensità continua
+  ### Circuito 3 — Cardio General, ~30 min totali
 
   | # | Esercizio | Durata lavoro | Pausa | Categoria |
   |---|---|---|---|---|
@@ -90,7 +84,7 @@ di 19 sessioni/mese.
   | 8 | High knees vicino a BOSU | 170s | 25s | Cardio |
   | — | Riscaldamento + defaticamento | 240s | — | — |
 
-  ### Circuito 4 — Weight Loss (dimagrimento), ~30 min totali, mix forza+cardio, intensità più alta
+  ### Circuito 4 — Weight Loss (dimagrimento), ~30 min totali
 
   | # | Esercizio | Durata lavoro | Pausa | Categoria |
   |---|---|---|---|---|
@@ -104,290 +98,136 @@ di 19 sessioni/mese.
   | 8 | Glute bridge + leg extension | 170s | 25s | Forza |
   | — | Riscaldamento + defaticamento | 240s | — | — |
 
-  Nota: nomi esercizio e categorie sono la fonte di verità definitiva, già tradotti
-  nelle 4 lingue (it/en/es/zh) in `artifacts/mobile/constants/translations.ts` e nei
-  rispettivi TTS cue, seguendo lo stesso pattern usato per l'onboarding. Le durate
-  sopra sono anch'esse definitive (ritmo calibrato per principianti) e vanno
-  mantenute sincronizzate con `artifacts/mobile/constants/circuits.ts` se rivisitate.
-- L'app guida l'utente attraverso il circuito con feedback live (voce/testo: "prossimo
-  esercizio", "mantieni la posizione", ecc.) — localizzato in 4 lingue (già implementato
-  lato UI/TTS nella fase onboarding+localizzazione).
-- Il video viene elaborato **solo in tempo reale on-device** (pose estimation) e MAI
-  salvato, né su device né su server — nessuno storage video, nessun upload.
+  Nomi esercizio e categorie sono la fonte di verità definitiva, già tradotti nelle 4
+  lingue (it/en/es/zh) in `artifacts/mobile/constants/translations.ts`.
 
-## 4. Validazione sessione — Sistema di verifica ibrido (sostituisce anti-cheat precedente)
+## 4. Validazione sessione — Health Connect (Android) / HealthKit (iOS)
 
-### Livello 1 — obbligatorio per tutti
+- La validazione si basa su dati di salute del dispositivo, **non** su camera o
+  accelerometro (entrambi rimossi definitivamente in Phase 2).
+- **Android** (`lib/health.android.ts`): `react-native-health-connect`,
+  `readRecords('ExerciseSession')` — cerca un record con startTime/endTime che si
+  sovrapponga alla finestra della sessione e durata ≥ 15 min (900s).
+- **iOS** (`lib/health.ios.ts`): `react-native-health`, `getAnchoredWorkouts` con
+  `HKWorkoutQueriedSampleType.duration` — cerca un HKWorkout nell'intervallo di 2h
+  precedente l'ora di completamento con duration ≥ 900s.
+- **Web/Expo Go** (`lib/health.ts`): fallback che restituisce sempre `isValid: false` —
+  validazione health non disponibile fuori da EAS dev build.
+- Il flag `isValid` è impostato client-side e trusted server-side al salvataggio
+  (nessuna verifica server indipendente in questa fase).
+- `healthSource`: `"health_connect"` | `"healthkit"` | `"none"` (salvato nel DB
+  per analisi futura).
 
-- **Pose estimation "a scatti"**: la camera valida solo i momenti chiave di ogni
-  esercizio (es. punto più basso squat, apice affondo, tenuta plank a metà durata) — non
-  tracking continuo, riduce il vincolo di spazio/inquadratura.
-- **Accelerometro/giroscopio**: conferma movimento continuativo per tutta la durata
-  della sessione (30–40 min), copre i momenti tra uno scatto camera e l'altro.
-- **Punteggio di validità** — score continuo pesato, non un semplice AND binario:
-  `score = 0.50 × scatti_ratio + 0.35 × accelerometro_ratio + 0.15 × wearable_score`
-  (termine wearable presente solo se un wearable è collegato). Se il wearable
-  **non** è collegato, il peso 0.15 viene redistribuito proporzionalmente tra
-  camera e accelerometro (camera 0.59, accelerometro 0.41), senza perdita di peso
-  al denominatore. **Sessione valida SE `score >= 0.70`.**
-- Il modello di pose estimation on-device è **MoveNet Lightning (TFLite)** via
-  `react-native-fast-tflite` + `vision-camera-resize-plugin` — scelta definitiva,
-  non provvisoria. Motivo: non esiste un binding MediaPipe Pose Landmarker
-  maturo/mantenuto per React Native/Expo pronto all'uso (richiederebbe scrivere
-  wrapper nativi Kotlin/Swift da zero); MoveNet+TFLite si integra invece con
-  `react-native-vision-camera` come frame processor JS-side senza codice nativo
-  aggiuntivo. Vincolo di compatibilità noto: richiede `react-native-vision-camera`
-  nella linea `^4.x` (la v5, riscrittura Nitro, ha rimosso l'API classica
-  `useFrameProcessor`/`frameProcessor` da cui dipendono questi plugin).
-- **Limitazione nota v1**: i checkpoint camera ("scatti") sono posizionati a
-  percentuale di tempo fissa della fase di lavoro (20% / 50% / 80%), uguali per
-  tutti gli esercizi — non sulla fase di movimento effettivamente rilevata (es.
-  minimo angolo ginocchio per il punto più basso dello squat). Da rivalutare dopo
-  test su device reale se emergono troppi falsi negativi/positivi.
-- Il backend riceve solo il riepilogo strutturato per esercizio (no video, no immagini).
+## 5. Schema dati (implementato)
 
-### Livello 2 — opzionale, bonus di affidabilità
+- `workout_sessions`: `id`, `user_id`, `training_goal`
+  (`muscle_tone`|`posture`|`cardio_general`|`weight_loss`), `duration_seconds`,
+  `is_valid`, `created_at`, `health_source`.
+- `pricing_state`: `user_id`, `current_level` (0–10), `last_month_completed`,
+  `subscription_started_at`, `updated_at`.
+- `subscriptions`: gestita lato Stripe (via `stripe-replit-sync`), nessun duplicato
+  locale.
 
-- Integrazione wearable (Apple Health / Google Health Connect / Fitbit API) per
-  frequenza cardiaca durante la sessione.
-- Se HR media durante l'esercizio supera soglia minima di sforzo (es. 60% frequenza
-  cardiaca max stimata) → `wearable_score = 1` nel punteggio di validità sopra, e la
-  sessione è marcata `verified_enhanced` invece di `verified_base` per il bonus di
-  pricing (calcolo `reliability_score` separato, invariato: 1.0 base / 1.5 enhanced).
-- Il collegamento wearable **non è mai obbligatorio** per validare una sessione
-  (accessibilità, non tutti hanno un wearable) — quando assente, il punteggio di
-  validità usa semplicemente i pesi redistribuiti camera/accelerometro (0.59/0.41).
+## 6. Logica pricing — lookup diretto sessioni→livello
 
-### Anti-cheat aggiuntivo (invariato dal piano precedente)
+**Sostituisce il vecchio sistema advance/regress a 12 livelli.** Non ci sono più
+`cycleMonthCounter`, `avgReliabilityScoreMonth` né regole di avanzamento/regressione.
 
-- Play Integrity API (Android) / DeviceCheck (iOS) per attestazione dispositivo.
-- Liveness check on-device in tempo reale (rilevamento pattern di movimento naturale vs
-  video in loop).
-- Analisi statistica lato server sui soli dati aggregati (durata, timing tra esercizi,
-  varianza rep-to-rep) per flaggare pattern anomali — unico meccanismo anti-cheat
-  possibile lato server senza video.
-- Da considerare: firma/hash del riepilogo generato on-device con chiave legata
-  all'attestazione dispositivo, per rendere più difficile falsificare il payload inviato
-  al backend.
+- **11 livelli** (0–10), valutati ogni mese in modo **indipendente** dal conteggio
+  sessioni valide del mese precedente.
+- Tabella `sessionsToLevel(n)`:
 
-## 5. Schema dati (bozza)
+  | Sessioni valide mese | Livello | Prezzo/mese |
+  |---|---|---|
+  | ≤ 8 | 0 | €250 |
+  | 9 | 1 | €139 |
+  | 10 | 2 | €79 |
+  | 11 | 3 | €47 |
+  | 12 | 4 | €30 |
+  | 13 | 5 | €21 |
+  | 14 | 6 | €16 |
+  | 15 | 7 | €13 |
+  | 16 | 8 | €12 |
+  | 17 | 9 | €11 |
+  | ≥ 18 | 10 | €10 |
 
-- `workout_sessions`: user_id, exercise_type, reps_valid, reps_invalid,
-  duration_seconds, avg_form_score, device_attestation_ok, verification_tier
-  (`verified_base` | `verified_enhanced`), reliability_score, created_at.
-- `pricing_state`: user_id, current_level (0–11), last_month_completed (bool),
-  avg_reliability_score_month, updated_at.
-- `subscriptions`: collegata a Stripe, nessun deposito, nessun rimborso — solo billing
-  mensile con prezzo variabile.
+- `displayLevel = currentLevel + 1` (1–11 per UI).
+- Ogni mese, `POST /api/pricing/cycle-all` (cron, gated da `x-cron-secret`) conta le
+  sessioni valide del mese precedente per ciascun utente → `sessionsToLevel(n)` →
+  aggiorna `pricing_state.current_level` → sincronizza il prezzo su Stripe.
+- Nessun ciclo annuale di reset: ogni mese è valutato statelessly.
+- Stripe: 1 prodotto, 11 prezzi mensili EUR con `metadata.level` 0–10.
+  Seed via `pnpm --filter @workspace/scripts run seed-pricing-products`.
 
-## 6. Logica pricing (state machine) — aggiornata con bonus wearable
+## 7. Compliance — testo disclaimer prezzi (definitivo, Phase 2)
 
-- 12 livelli fissi: `[139, 130, 121, 112, 103, 94, 86, 77, 68, 59, 50, 41]` EUR (livello
-  0 = 139€, livello 11 = 41€). Floor/ceiling invariati.
-- `reliability_score` per sessione: `1.0` se `verified_base`, `1.5` se
-  `verified_enhanced` (wearable confermato).
-- **Avanzamento livello mensile:**
-  - SE `sessioni_completate_mese >= 19` E `media_reliability_score_mese >= 1.4` (cioè
-    uso costante wearable) → avanza di **2 livelli** il mese successivo.
-  - SE `sessioni_completate_mese >= 19` ma solo verifica base → avanza di **1 livello**
-    come da schema precedente.
-  - Max livello 11 in entrambi i casi.
-- **Retrocessione per fallimento** (< 19 sessioni valide, indipendentemente dal tier di
-  verifica usato): -1 livello, min livello 0.
-- Nessun rimborso negativo, nessun deposito trattenuto — solo billing Stripe mensile con
-  importo dal livello corrente.
-
-## 7. Compliance — testo disclaimer prezzi (definitivo, da mostrare pre-checkout)
-
-Testo finale approvato, da mostrare all'utente prima della sottoscrizione (e reso
-disponibile in ogni momento dalle impostazioni). Va tradotto nelle 4 lingue
-(it/en/es/zh) in fase di build, mantenendo lo stesso significato legale/numerico.
+Testo da mostrare all'utente prima della sottoscrizione (tradotto nelle 4 lingue):
 
 > ## Come funziona il prezzo del tuo abbonamento
 >
-> 19 Sessions è un sistema incentivante con un prezzo che cambia ogni mese in base a
-> quante sessioni completi. Lo schema di sconto è tarato su un ciclo di **12
-> mensilità**: se resti costante per un anno intero, il prezzo scende progressivamente
-> fino al minimo.
+> 19 Sessions BOSU ha un prezzo mensile che cambia in base a quante sessioni valide
+> completi ogni mese. Il prezzo viene ricalcolato ogni mese in modo indipendente — non
+> è una progressione cumulativa, ogni mese parte dal conteggio reale delle tue sessioni.
 >
 > ### La regola
 >
-> Ogni mese devi completare **19 sessioni valide** (verificate tramite camera,
-> movimento e — se colleghi uno smartwatch — battito cardiaco) per far scendere il tuo
-> prezzo il mese successivo.
+> Il prezzo del mese successivo dipende da quante sessioni valide (≥ 15 minuti,
+> verificate tramite Health Connect o HealthKit) hai completato nel mese corrente.
 >
-> - **Se completi 19 sessioni** → il mese dopo paghi meno (scendi di un livello)
-> - **Se colleghi anche uno smartwatch e lo usi per la maggior parte delle sessioni** →
->   il mese dopo scendi di due livelli invece di uno
-> - **Se NON completi 19 sessioni** → il mese dopo paghi di più (sali di un livello)
+> ### I livelli di prezzo
 >
-> ### Cosa ti serve per usare 19 Sessions
->
-> - Uno smartphone compatibile con l'app
-> - Un BOSU (da acquistare separatamente, non incluso nell'abbonamento)
-> - Uno smartwatch è facoltativo: serve solo per il bonus di avanzamento più rapido, non
->   per usare l'app
->
-> ### I 12 livelli di prezzo
->
-> | Livello | Prezzo/mese |
-> |---|---|
-> | 1 (partenza) | 139€ |
-> | 2 | 130€ |
-> | 3 | 121€ |
-> | 4 | 112€ |
-> | 5 | 103€ |
-> | 6 | 94€ |
-> | 7 | 86€ |
-> | 8 | 77€ |
-> | 9 | 68€ |
-> | 10 | 59€ |
-> | 11 | 50€ |
-> | 12 (minimo) | 41€ |
->
-> **Parti sempre dal Livello 1 (139€) al primo mese.**
+> | Sessioni/mese | Livello | Prezzo/mese |
+> |---|---|---|
+> | ≤ 8 | 1 | €250 |
+> | 9 | 2 | €139 |
+> | 10 | 3 | €79 |
+> | 11 | 4 | €47 |
+> | 12 | 5 | €30 |
+> | 13 | 6 | €21 |
+> | 14 | 7 | €16 |
+> | 15 | 8 | €13 |
+> | 16 | 9 | €12 |
+> | 17 | 10 | €11 |
+> | ≥ 18 | 11 | €10 |
 >
 > ### Puoi cancellare quando vuoi
 >
-> - **Nessun vincolo di durata minima**: puoi cancellare l'abbonamento in qualsiasi
->   momento, anche prima che il ciclo di 12 mesi sia completo
-> - Se cancelli, semplicemente **non prosegui più nella progressione di sconto** —
->   nessuna penale, nessun costo aggiuntivo per l'uscita anticipata
-> - Hai comunque **14 giorni** dalla prima iscrizione per un rimborso completo, senza
->   dover spiegare il motivo (diritto di recesso di legge)
-> - Lo schema a 12 livelli è pensato per chi vuole seguire il percorso fino in fondo, ma
->   non è un obbligo: resti libero di uscire quando vuoi, il prezzo che hai pagato fino
->   a quel momento resta quello che hai effettivamente pagato, nessun conguaglio
->   richiesto
+> - Nessun vincolo di durata minima.
+> - Hai 14 giorni dalla prima iscrizione per un rimborso completo (diritto di recesso).
 >
-> ### Quanto pagherai in un anno — i due scenari estremi
->
-> - **Se completi sempre le 19 sessioni ogni mese**: pagherai circa **1.080€ nell'anno**
->   (arrivi al prezzo minimo e ci resti)
-> - **Se non completi mai le 19 sessioni**: pagherai circa **1.668€ nell'anno** (resti
->   sempre al prezzo pieno o vicino)
-> - La maggior parte delle persone si troverà in una via di mezzo tra questi due numeri,
->   in base a quanto è costante
->
-> ### Cosa NON succede mai
->
-> - Non ti chiediamo mai un pagamento anticipato o un deposito
-> - Non tratteniamo mai il tuo denaro: paghi solo il prezzo del mese corrente, ogni mese
-> - Non ci sono rimborsi da richiedere: se il prezzo scende, lo vedi scontato
->   direttamente sull'addebito successivo
->
-> ### I tuoi diritti
->
-> - Puoi cancellare l'abbonamento in qualsiasi momento
-> - Hai **14 giorni** dalla prima iscrizione per cambiare idea e ottenere il rimborso
->   completo, senza dover spiegare il motivo
-> - Il collegamento dello smartwatch è sempre facoltativo: senza, l'abbonamento
->   funziona comunque secondo la regola base (1 livello al mese)
->
-> ### Dopo i 12 mesi: il ciclo ricomincia
->
-> Se resti abbonato oltre il dodicesimo mese, lo schema riparte da capo: al
-> **tredicesimo mese torni al Livello 1 (139€)**, e la progressione ricomincia
-> esattamente come il primo anno — completa 19 sessioni al mese per scendere di nuovo
-> verso il prezzo minimo.
->
-> Questo vale a prescindere da dove eri arrivato: anche se al mese 12 avevi raggiunto
-> il Livello 12 (41€), il mese 13 riparte comunque dal Livello 1. Il ciclo di 12 mesi si
-> ripete allo stesso modo ogni anno di abbonamento.
->
-> *Ultimo aggiornamento: [data]. In caso di modifiche a questo schema, te lo
-> comunicheremo con almeno 30 giorni di anticipo prima che entri in vigore sul tuo
-> abbonamento.*
+> *Ultimo aggiornamento: luglio 2026.*
 
-Nota per la build — reset annuale: la state machine pricing (sezione 6) deve tracciare
-non solo `current_level` ma anche il mese di anniversario dell'abbonamento, per
-azzerare `current_level` a 0 (Livello 1) automaticamente all'inizio del tredicesimo
-mese, indipendentemente dal livello raggiunto. Questo è un nuovo campo/logica rispetto
-allo schema dati in sezione 5 (serve un `subscription_started_at` o
-`cycle_month_counter` in `pricing_state`).
+## Stato implementazione ad oggi (Phase 2 completa — luglio 2026)
 
-Nota di coerenza numerica per la build: la numerazione dei livelli qui è 1–12 (livello
-1 = 139€, livello 12 = 41€) nel testo utente, mentre altrove nel piano (sezioni 4 e 6)
-e nello schema dati si usa 0–11 (livello 0 = 139€, livello 11 = 41€) per indicizzazione
-zero-based lato codice. Sono lo stesso schema di prezzi — la build dovrà scegliere una
-convenzione unica lato dati e mappare la UI/testo utente sulla numerazione 1–12 per
-chiarezza percepita.
-
-## Aperture da chiudere prima della build
-
-Nessuna aperta al momento — entrambi i punti precedenti (circuiti fissi, disclaimer
-prezzi) sono stati chiusi. Prossimo passo: passare alla fase di build quando
-l'utente lo richiede esplicitamente.
-
-## Stato implementazione ad oggi
-
-- Fatto (in `artifacts/mobile`): setup Expo + EAS, schema Drizzle (`artifacts/api-server` +
-  `lib/db`), pose estimation via camera (expo-camera + rilevamento pose), logica dei 4
-  circuiti fissi, scoring da accelerometro/reliability score, onboarding obiettivo (goal
-  picker, lock 30 giorni), localizzazione it/en/es/zh (UI + TTS live via expo-speech),
+### Fatto (Phase 1)
+- Setup Expo + EAS, schema Drizzle, logica dei 4 circuiti fissi, onboarding obiettivo
+  (goal picker, lock 30 giorni), localizzazione it/en/es/zh (UI + TTS),
   session runner con timer lavoro/riposo.
-- Fatto (pricing/Stripe — sezione 6): backend completo in `artifacts/api-server`:
-  - `src/lib/stripeClient.ts` — client Stripe via connettore Replit (StripeSync gestisce
-    webhook + tabelle `stripe.*` in Postgres).
-  - `src/lib/pricingStateMachine.ts` — logica pura: 12 livelli (0–11 lato dati,
-    1–12 lato UI), prezzi da 139€ a 41€, regole di avanzamento/regressione/reset annuale
-    (`cycle_month_counter`).
-  - `src/routes/pricing.ts` — `GET /api/pricing/state/:userId`, `POST /api/pricing/checkout`
-    (Stripe Checkout), `POST /api/pricing/portal` (Customer Portal), `POST
-    /api/pricing/cycle-all` (cron mensile, protetto da header `x-cron-secret` +
-    `CRON_SECRET`).
-  - `scripts/src/seed-pricing-products.ts` — crea idempotentemente il prodotto Stripe e i
-    12 prezzi mensili EUR (tag `metadata.level`), già eseguito in ambiente dev.
-  - Verificato end-to-end manualmente: stato pricing, creazione Checkout Session, Customer
-    Portal, e ciclo mensile (avanzamento/regressione livello + aggiornamento subscription
-    su Stripe) tutti funzionanti contro l'account Stripe test collegato.
-  - Nota tecnica: `stripe-replit-sync` deve restare esterno al bundle esbuild
-    (`external` in `artifacts/api-server/build.mjs`) — la libreria risolve la cartella
-    `migrations` relativa al proprio `__dirname` a runtime, e il bundling la rompe
-    silenziosamente (nessuna migrazione applicata, nessun errore visibile finché non si
-    usano le tabelle `stripe.*`).
-  - Lato mobile: `context/AppContext.tsx` genera e persiste un `userId` (UUID v4 via
-    `expo-crypto`, salvato in SecureStore/AsyncStorage) — **ora usato solo come
-    identificatore locale/analytics, non più per le chiamate di pricing** (vedi
-    fix IDOR sotto). Sezione "Abbonamento" in `app/(tabs)/settings.tsx` mostra
-    livello/prezzo/stato e apre Checkout o Customer Portal tramite
-    `expo-web-browser`.
-- **Fix di sicurezza (IDOR) — autenticazione Clerk reale su `/api/pricing/*`:**
-  - Problema: `GET /api/pricing/state/:userId`, `POST /api/pricing/checkout` e
-    `POST /api/pricing/portal` si fidavano di un `userId` fornito dal client
-    (path param o body) — chiunque poteva leggere/modificare lo stato di
-    pricing e avviare Checkout/Portal per un altro utente semplicemente
-    indovinando/impostando il suo UUID.
-  - Fix: aggiunto Clerk (stesso provider/tenant pattern di SGI, tenant separato
-    per questo progetto) come vero sistema di autenticazione. Il server monta
-    `clerkMiddleware()` prima del router `/api`; le tre route pricing usano
-    `requireAuth()` + `getAuth(req).userId` — l'`userId` non arriva più né da
-    path param né da body, è sempre derivato dal token di sessione Clerk
-    verificato lato server. L'email per Stripe Checkout viene letta dal
-    profilo Clerk dell'utente autenticato (`clerkClient.users.getUser`), non
-    più passata dal client.
-  - OpenAPI (`lib/api-spec/openapi.yaml`): `/pricing/state/{userId}` →
-    `/pricing/state` (nessun path param); rimossi gli schemi
-    `PricingCheckoutInput`/`PricingPortalInput` (nessun body con userId/email);
-    aggiunto `security: [clerkAuth: []]` + risposte 401 su state/checkout/
-    portal.
-  - Lato mobile: schermate di sign-in/sign-up custom (Core v3 SDK di Clerk —
-    i componenti nativi `<SignIn/>`/`<SignUp/>` non funzionano in Expo Go) in
-    `app/(auth)/`, con email+password e Google SSO via `useSSO().startSSOFlow()`.
-    Root layout avvolto in `ClerkProvider`+`ClerkLoaded`; la navigazione è
-    bloccata su `useAuth().isSignedIn` (redirect a `/(auth)/sign-in` se non
-    autenticato). Una volta autenticato, il token di sessione viene passato ad
-    ogni chiamata API tramite `setAuthTokenGetter(() => getToken())` — il
-    device-UUID resta solo come identificatore locale, non più inviato al
-    server per le chiamate di pricing.
-  - `POST /api/pricing/cycle-all` resta invariato: è un endpoint cron-only,
-    protetto da header `x-cron-secret` contro `CRON_SECRET`, non richiamabile
-    dal client mobile — non soggetto allo stesso problema.
-  - Verifica: `pnpm run typecheck` (api-spec, api-server, mobile) pulito;
-    bundling Expo verificato via log dopo restart. Verifica visiva completa
-    del flusso di sign-in richiede un dev build/Expo Go su device reale — la
-    preview web non supporta `react-native-vision-camera` (limite preesistente,
-    non legato a questo fix) e mostra un overlay di errore su qualsiasi route
-    che carichi il modulo camera.
-- Non ancora iniziato: integrazione wearable (fase 2), anti-cheat (Play Integrity/
-  DeviceCheck), analisi statistica server-side avanzata.
+- Backend completo pricing/Stripe: state machine, checkout, portal, cron cycle-all.
+- Fix IDOR: autenticazione Clerk reale su `/api/pricing/*` e `/api/sessions`.
+
+### Fatto (Phase 2 — luglio 2026)
+- **Rimozione completa** camera, pose estimation (MoveNet/TFLite/fast-tflite),
+  accelerometro, `vision-camera-resize-plugin`, `react-native-fast-tflite`,
+  `PoseCameraView.tsx`, `usePoseModel`, `useAccelerometerMonitor`, e tutti i file
+  collegati (8 file eliminati).
+- **Health Connect (Android) + HealthKit (iOS)** come unica fonte di validazione
+  sessione (durata ≥ 15 min). Platform-specific bundler picks up
+  `health.android.ts` / `health.ios.ts` automaticamente.
+- **Nuovo route `POST /api/sessions`** in `artifacts/api-server/src/routes/sessions.ts`
+  — salva sessione completata per utente autenticato Clerk.
+- **Pricing rewritten**: da advance/regress 12 livelli → lookup diretto 11 livelli
+  (0–10). `sessionsToLevel(n)` stateless. Rimossi `cycleMonthCounter`,
+  `avgReliabilityScoreMonth`, `doubleAdvancedCount`, `resetCount`.
+- DB migrato: rimossi 6 colonne camera + 2 colonne pricing; aggiunta `healthSource`.
+- OpenAPI spec aggiornata, codegen rieseguito, tutti i typecheck clean (api-server,
+  mobile, scripts — zero errori).
+- Seed script aggiornato per 11 prezzi EUR (livelli 0–10).
+- `app.ts`: rimosso import non-funzionante `@clerk/shared/keys`; `clerkMiddleware`
+  ora passa `publishableKey` direttamente da env (equivalente per mono-tenant).
+- `replit.md` aggiornato a riflettere lo stato corrente.
+
+### Non ancora iniziato (Phase 3+)
+- Integrazione wearable avanzata (frequenza cardiaca come bonus score).
+- Anti-cheat Play Integrity API (Android) / DeviceCheck (iOS).
+- Analisi statistica server-side avanzata su pattern anomali.

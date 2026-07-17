@@ -1,24 +1,17 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, Stack } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { useApp } from "@/context/AppContext";
 import { CIRCUITS, type CircuitExercise } from "@/constants/circuits";
 import { speak, stopSpeech } from "@/utils/speech";
-import { PoseCameraView } from "@/components/camera/PoseCameraView";
-import { useAccelerometerMonitor } from "@/hooks/useAccelerometerMonitor";
-import { getCheckpointsForExercise } from "@/lib/pose/checkpointSchedule";
-import { validatePoseForExercise } from "@/lib/pose/exerciseValidators";
-import {
-  buildSessionValidationSummary,
-  type SessionValidationSummary,
-} from "@/lib/pose/sessionValidation";
-import type { PoseKeypoints, ScattoResult } from "@/lib/pose/types";
+import { checkWorkoutValidity, type HealthCheckResult } from "@/lib/health";
+import { useCreateWorkoutSession } from "@workspace/api-client-react";
 
 type Phase = "intro" | "work" | "rest" | "done";
 
@@ -31,106 +24,50 @@ export default function SessionScreen() {
   const circuit = goal ? CIRCUITS[goal] : null;
   const exercises: CircuitExercise[] = circuit?.exercises ?? [];
 
+  const totalDurationSeconds = exercises.reduce(
+    (sum, e) => sum + e.workSeconds + e.restSeconds,
+    0,
+  );
+
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>("intro");
   const [secondsLeft, setSecondsLeft] = useState(3);
-  const [validationSummary, setValidationSummary] =
-    useState<SessionValidationSummary | null>(null);
+  const [healthResult, setHealthResult] = useState<HealthCheckResult | null>(null);
+  const [healthChecking, setHealthChecking] = useState(false);
+
   const spokenRef = useRef<string>("");
+  const sessionStartedAtRef = useRef<Date | null>(null);
 
   const current = exercises[index];
   const next = exercises[index + 1];
 
-  // --- Hybrid verification (camera "scatti" + accelerometer) ---
-  // See docs/architecture-plan.md section 4. Requires a native EAS dev build;
-  // react-native-vision-camera frame processors are unavailable in Expo Go.
-  const latestPoseRef = useRef<PoseKeypoints | null>(null);
-  const scattiResultsRef = useRef<ScattoResult[]>([]);
-  const capturedCheckpointsRef = useRef<Set<string>>(new Set());
-  const sessionAccelTotalsRef = useRef({ sampleCount: 0, coherentSampleCount: 0 });
-  const lastAccelStateRef = useRef({ sampleCount: 0, coherentSampleCount: 0 });
+  const { mutate: saveSession, isPending: isSaving } = useCreateWorkoutSession();
 
-  const checkpoints = useMemo(
-    () => (current ? getCheckpointsForExercise(current) : []),
-    [current],
-  );
-
-  const handlePose = useCallback((pose: PoseKeypoints) => {
-    latestPoseRef.current = pose;
-  }, []);
-
-  const accelState = useAccelerometerMonitor(
-    current?.category ?? null,
-    phase === "work",
-  );
-
-  // Accumulate accelerometer coherence across the whole session — the
-  // monitor hook itself resets its internal counters each time the
-  // exercise (and thus category) changes.
+  // Record session start time when the first work phase begins.
   useEffect(() => {
-    const delta = {
-      sampleCount: accelState.sampleCount - lastAccelStateRef.current.sampleCount,
-      coherentSampleCount:
-        accelState.coherentSampleCount - lastAccelStateRef.current.coherentSampleCount,
-    };
-    if (delta.sampleCount > 0) {
-      sessionAccelTotalsRef.current.sampleCount += delta.sampleCount;
-      sessionAccelTotalsRef.current.coherentSampleCount += delta.coherentSampleCount;
+    if (phase === "work" && index === 0 && !sessionStartedAtRef.current) {
+      sessionStartedAtRef.current = new Date();
     }
-    lastAccelStateRef.current = {
-      sampleCount: accelState.sampleCount,
-      coherentSampleCount: accelState.coherentSampleCount,
-    };
-  }, [accelState.sampleCount, accelState.coherentSampleCount]);
+  }, [phase, index]);
 
+  // When session finishes, query Health Connect (Android) or HealthKit (iOS)
+  // for a workout that started within the session window and lasted ≥15 min.
   useEffect(() => {
-    lastAccelStateRef.current = { sampleCount: 0, coherentSampleCount: 0 };
-  }, [index]);
+    if (phase !== "done" || healthResult !== null || healthChecking) return;
 
-  // Trigger a camera "scatto" (single-frame pose validation) when the
-  // elapsed work time for the current exercise crosses a scheduled
-  // checkpoint instant.
-  useEffect(() => {
-    if (!current || phase !== "work") return;
-    const elapsed = current.workSeconds - secondsLeft;
+    setHealthChecking(true);
+    const startedAt = sessionStartedAtRef.current ?? new Date(Date.now() - 40 * 60 * 1000);
 
-    for (const cp of checkpoints) {
-      const key = `${index}-${cp.label}`;
-      if (elapsed >= cp.atWorkSecond && !capturedCheckpointsRef.current.has(key)) {
-        capturedCheckpointsRef.current.add(key);
-        const pose = latestPoseRef.current;
-        if (pose) {
-          const result = validatePoseForExercise(pose, {
-            exerciseId: current.id,
-            category: current.category,
-            checkpointLabel: cp.label,
-            timestampMs: Date.now(),
-          });
-          scattiResultsRef.current.push(result);
-        } else {
-          scattiResultsRef.current.push({
-            exerciseId: current.id,
-            checkpointLabel: cp.label,
-            valid: false,
-            confidence: 0,
-            reason: "no_pose_detected",
-            timestampMs: Date.now(),
-          });
-        }
-      }
-    }
-  }, [current, phase, secondsLeft, checkpoints, index]);
-
-  useEffect(() => {
-    if (phase === "done" && !validationSummary) {
-      setValidationSummary(
-        buildSessionValidationSummary(
-          scattiResultsRef.current,
-          sessionAccelTotalsRef.current,
-        ),
-      );
-    }
-  }, [phase, validationSummary]);
+    checkWorkoutValidity(startedAt, 15 * 60 * 1000)
+      .then((result) => {
+        setHealthResult(result);
+        setHealthChecking(false);
+      })
+      .catch(() => {
+        setHealthResult({ isValid: false, healthSource: null });
+        setHealthChecking(false);
+      });
+  }, [phase, healthResult, healthChecking]);
 
   useEffect(() => {
     return () => stopSpeech();
@@ -193,7 +130,6 @@ export default function SessionScreen() {
             setPhase("rest");
             return current.restSeconds;
           }
-          // no rest, go straight to next exercise or finish
           if (next) {
             setIndex((i) => i + 1);
             setPhase("work");
@@ -238,10 +174,25 @@ export default function SessionScreen() {
     );
   };
 
-  if (!current) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]} />
+  const handleFinish = () => {
+    stopSpeech();
+    saveSession(
+      {
+        data: {
+          trainingGoal: (goal ?? "muscle_tone") as "muscle_tone" | "posture" | "cardio_general" | "weight_loss",
+          durationSeconds: totalDurationSeconds,
+          isValid: healthResult?.isValid ?? false,
+          healthSource: healthResult?.healthSource ?? null,
+        },
+      },
+      {
+        onSettled: () => router.replace("/(tabs)"),
+      },
     );
+  };
+
+  if (!current) {
+    return <View style={[styles.container, { backgroundColor: colors.background }]} />;
   }
 
   if (phase === "done") {
@@ -263,39 +214,62 @@ export default function SessionScreen() {
         <Text style={[styles.doneDesc, { color: colors.mutedForeground }]}>
           {t("session.completeDesc")}
         </Text>
-        {validationSummary && (
-          <View style={[styles.summaryCard, { backgroundColor: colors.muted }]}>
-            <Text style={[styles.summaryRow, { color: colors.foreground }]}>
-              Scatti validi: {validationSummary.camScattiValid} / {validationSummary.camScattiValid + validationSummary.camScattiInvalid}
-            </Text>
-            <Text style={[styles.summaryRow, { color: colors.foreground }]}>
-              Coerenza movimento: {Math.round(validationSummary.accelerometerCoherenceRatio * 100)}%
-            </Text>
-            <Text style={[styles.summaryRow, { color: colors.foreground }]}>
-              Tier: {validationSummary.verificationTier === "verified_enhanced" ? "Verificata (smartwatch)" : "Verificata (base)"}
-            </Text>
-            <Text style={[styles.summaryRow, { color: validationSummary.isValid ? colors.primary : colors.mutedForeground }]}>
-              {validationSummary.isValid ? "Sessione valida" : "Sessione non validata"}
+
+        {healthChecking ? (
+          <View style={[styles.healthCard, { backgroundColor: colors.muted }]}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={[styles.healthText, { color: colors.mutedForeground }]}>
+              Verifica allenamento in corso…
             </Text>
           </View>
-        )}
+        ) : healthResult !== null ? (
+          <View style={[styles.healthCard, { backgroundColor: colors.muted }]}>
+            <Feather
+              name={healthResult.isValid ? "check-circle" : "alert-circle"}
+              size={20}
+              color={healthResult.isValid ? colors.primary : colors.mutedForeground}
+            />
+            <Text
+              style={[
+                styles.healthText,
+                { color: healthResult.isValid ? colors.primary : colors.mutedForeground },
+              ]}
+            >
+              {healthResult.isValid
+                ? "Sessione valida — allenamento rilevato"
+                : healthResult.healthSource === null
+                  ? "Validazione non disponibile su questo dispositivo"
+                  : "Nessun allenamento di almeno 15 min rilevato"}
+            </Text>
+          </View>
+        ) : null}
+
         <Pressable
           testID="finish-session"
-          onPress={() => {
-            stopSpeech();
-            router.replace("/(tabs)");
-          }}
-          style={[styles.finishButton, { backgroundColor: colors.primary }]}
+          onPress={handleFinish}
+          disabled={healthChecking || isSaving}
+          style={[
+            styles.finishButton,
+            {
+              backgroundColor: colors.primary,
+              opacity: healthChecking || isSaving ? 0.6 : 1,
+            },
+          ]}
         >
-          <Text style={[styles.finishText, { color: colors.primaryForeground }]}>
-            {t("session.finish")}
-          </Text>
+          {isSaving ? (
+            <ActivityIndicator size="small" color={colors.primaryForeground} />
+          ) : (
+            <Text style={[styles.finishText, { color: colors.primaryForeground }]}>
+              {t("session.finish")}
+            </Text>
+          )}
         </Pressable>
       </View>
     );
   }
 
-  const totalForPhase = phase === "rest" ? current.restSeconds : phase === "intro" ? 3 : current.workSeconds;
+  const totalForPhase =
+    phase === "rest" ? current.restSeconds : phase === "intro" ? 3 : current.workSeconds;
   const progress = totalForPhase > 0 ? 1 - secondsLeft / totalForPhase : 0;
 
   return (
@@ -316,10 +290,6 @@ export default function SessionScreen() {
       </View>
 
       <View style={styles.center}>
-        {phase === "work" && (
-          <PoseCameraView onPose={handlePose} isActive={phase === "work"} />
-        )}
-
         <Text
           style={[
             styles.phaseLabel,
@@ -333,9 +303,7 @@ export default function SessionScreen() {
               : t(`exercises.${current.nameKey}`)}
         </Text>
 
-        <Text style={[styles.timer, { color: colors.foreground }]}>
-          {secondsLeft}
-        </Text>
+        <Text style={[styles.timer, { color: colors.foreground }]}>{secondsLeft}</Text>
 
         <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
           <View
@@ -420,6 +388,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: 20,
   },
+  healthCard: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  healthText: {
+    fontSize: 14,
+    fontWeight: "600",
+    flex: 1,
+  },
   finishButton: {
     height: 54,
     width: "100%",
@@ -431,15 +412,5 @@ const styles = StyleSheet.create({
   finishText: {
     fontSize: 16,
     fontWeight: "700",
-  },
-  summaryCard: {
-    width: "100%",
-    borderRadius: 16,
-    padding: 16,
-    gap: 6,
-  },
-  summaryRow: {
-    fontSize: 14,
-    fontWeight: "600",
   },
 });

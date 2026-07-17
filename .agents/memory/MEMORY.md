@@ -6,3 +6,5 @@
 - [Vision Camera frame processors](expo-vision-camera-frame-processors.md) — v5 dropped useFrameProcessor API; pin to v4.x for fast-tflite/resize-plugin pipelines.
 - [stripe-replit-sync bundling](stripe-replit-sync-bundling.md) — must be esbuild `external`; bundling silently breaks its migration runner (no error, no tables).
 - [Clerk requireAuth() dev handshake redirect breaks APIs](clerk-requireauth-api-401.md) — @clerk/express requireAuth() 302-redirects on missing/invalid token in dev; use manual getAuth(req) check for JSON APIs.
+- [clerk-shared-keys-missing](clerk-shared-keys-missing.md) — `@clerk/shared/keys` sub-path does not exist in @clerk/shared@4.25.0; pass publishableKey from env directly to clerkMiddleware.
+- [drizzle-kit-push-tty](drizzle-kit-push-tty.md) — drizzle-kit push requires TTY for column-drop confirmations; use executeSql in code_execution for schema changes that drop columns.

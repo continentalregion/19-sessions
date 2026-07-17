@@ -18,16 +18,34 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * Returns the current pricing level and monthly progress for the authenticated caller (identified from the Clerk session, never from a client-supplied identifier). Creates a default Level 1 (currentLevel 0) row if none exists yet.
+ * Saves a completed workout session for the authenticated user. The isValid flag is determined client-side from Health Connect (Android) or HealthKit (iOS) — the server trusts and persists it as-is. userId is derived from the Clerk session, never from the request body.
+ * @summary Save a completed workout session
+ */
+export const createWorkoutSessionBodyDurationSecondsMin = 0;
+
+
+
+export const CreateWorkoutSessionBody = zod.object({
+  "trainingGoal": zod.enum(['muscle_tone', 'posture', 'cardio_general', 'weight_loss']),
+  "durationSeconds": zod.number().min(createWorkoutSessionBodyDurationSecondsMin),
+  "isValid": zod.boolean(),
+  "healthSource": zod.union([zod.literal('health_connect'),zod.literal('healthkit'),zod.literal(null)]).nullish()
+})
+
+export const CreateWorkoutSessionResponse = zod.object({
+  "id": zod.number(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * Returns the current pricing level and monthly progress for the authenticated caller (identified from the Clerk session, never from a client-supplied identifier). Creates a default Level 1 (currentLevel 0, 250 EUR) row if none exists yet.
  * @summary Get pricing state for the authenticated user
  */
 export const getPricingStateResponseCurrentLevelMin = 0;
-export const getPricingStateResponseCurrentLevelMax = 11;
+export const getPricingStateResponseCurrentLevelMax = 10;
 
-export const getPricingStateResponseDisplayLevelMax = 12;
-
-export const getPricingStateResponseCycleMonthCounterMin = 0;
-export const getPricingStateResponseCycleMonthCounterMax = 11;
+export const getPricingStateResponseDisplayLevelMax = 11;
 
 
 
@@ -36,12 +54,10 @@ export const GetPricingStateResponse = zod.object({
   "currentLevel": zod.number().min(getPricingStateResponseCurrentLevelMin).max(getPricingStateResponseCurrentLevelMax),
   "displayLevel": zod.number().min(1).max(getPricingStateResponseDisplayLevelMax),
   "priceEur": zod.number(),
-  "cycleMonthCounter": zod.number().min(getPricingStateResponseCycleMonthCounterMin).max(getPricingStateResponseCycleMonthCounterMax),
   "subscriptionStartedAt": zod.coerce.date().nullable(),
   "lastMonthCompleted": zod.boolean(),
-  "avgReliabilityScoreMonth": zod.number().nullable(),
   "subscriptionStatus": zod.union([zod.literal('active'),zod.literal('canceled'),zod.literal('past_due'),zod.literal('incomplete'),zod.literal(null)]).nullable()
-}).describe('currentLevel is 0-11 (zero-based, data\/logic convention). displayLevel (currentLevel + 1, range 1-12) and priceEur are derived for UI display.')
+}).describe('currentLevel is 0-10 (zero-based). Level 0 = 250 EUR (≤8 sessions\/month), Level 10 = 10 EUR (≥18 sessions\/month). displayLevel = currentLevel + 1. Price is recalculated from scratch every month — no cycle counter.')
 
 
 /**
@@ -63,8 +79,8 @@ export const CreatePricingPortalSessionResponse = zod.object({
 
 
 /**
- * Cron-only endpoint, not called by the mobile app. Must be invoked once a month by a scheduled job (e.g. Replit Scheduled Deployment) with the shared secret header. Evaluates each user's previous calendar month (sessions completed, average reliability score), applies the level transition, updates the 13th-month reset, and syncs the new price to the user's active Stripe subscription.
- * @summary Internal — run the monthly level advance/regress evaluation for all users
+ * Cron-only endpoint, not called by the mobile app. Must be invoked once a month by a scheduled job (e.g. Replit Scheduled Deployment) with the shared secret header. Evaluates each user's previous calendar month (valid session count only — no reliability score), sets the new price via direct lookup, and syncs it to the user's active Stripe subscription. No cycle counter or gradual level transitions — each month is independent.
+ * @summary Internal — run the monthly price recalculation for all users
  */
 export const RunPricingCycleHeader = zod.object({
   "x-cron-secret": zod.string()
@@ -72,10 +88,8 @@ export const RunPricingCycleHeader = zod.object({
 
 export const RunPricingCycleResponse = zod.object({
   "processedCount": zod.number(),
-  "advancedCount": zod.number(),
-  "doubleAdvancedCount": zod.number(),
+  "improvedCount": zod.number(),
   "regressedCount": zod.number(),
-  "resetCount": zod.number(),
   "unchangedCount": zod.number()
 })
 

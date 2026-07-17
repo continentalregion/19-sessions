@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "19 Sessions",
+    "name": "19 Sessions BOSU",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,13 +17,13 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.trantads.sessions19",
       "infoPlist": {
-        "NSCameraUsageDescription": "19 Sessions usa la camera per validare in tempo reale i momenti chiave dei tuoi esercizi (nessun video viene salvato o inviato).",
-        "NSMotionUsageDescription": "19 Sessions usa accelerometro e giroscopio per confermare il movimento durante tutta la sessione di allenamento."
+        "NSHealthShareUsageDescription": "19 Sessions BOSU verifica i tuoi allenamenti tramite Apple Health per convalidare le sessioni completate.",
+        "NSHealthUpdateUsageDescription": "19 Sessions BOSU non scrive dati su Apple Health."
       }
     },
     "android": {
       "package": "com.trantads.sessions19",
-      "permissions": ["CAMERA", "ACTIVITY_RECOGNITION"]
+      "permissions": ["ACTIVITY_RECOGNITION"]
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -50,13 +50,13 @@
         }
       ],
       [
-        "react-native-vision-camera",
+        "react-native-health",
         {
-          "cameraPermissionText": "19 Sessions usa la camera per validare in tempo reale i momenti chiave dei tuoi esercizi. Nessun video viene salvato o inviato.",
-          "enableMicrophonePermission": false,
-          "enableCodeScanner": false
+          "NSHealthShareUsageDescription": "19 Sessions BOSU verifica i tuoi allenamenti tramite Apple Health per convalidare le sessioni completate.",
+          "NSHealthUpdateUsageDescription": "19 Sessions BOSU non scrive dati su Apple Health."
         }
-      ]
+      ],
+      "react-native-health-connect"
     ],
     "experiments": {
       "typedRoutes": true,

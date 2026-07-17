@@ -8,9 +8,7 @@
 
 export interface PricingCycleResult {
   processedCount: number;
-  advancedCount: number;
-  doubleAdvancedCount: number;
+  improvedCount: number;
   regressedCount: number;
-  resetCount: number;
   unchangedCount: number;
 }

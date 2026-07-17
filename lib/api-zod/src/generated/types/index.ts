@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './createWorkoutSessionInput';
+export * from './createWorkoutSessionInputHealthSource';
+export * from './createWorkoutSessionInputTrainingGoal';
 export * from './errorResponse';
 export * from './healthStatus';
 export * from './pricingCheckoutSession';
@@ -13,3 +16,4 @@ export * from './pricingCycleResult';
 export * from './pricingPortalSession';
 export * from './pricingState';
 export * from './pricingStateSubscriptionStatus';
+export * from './workoutSessionRecord';

@@ -13,6 +13,41 @@ export interface ErrorResponse {
   error: string;
 }
 
+export type CreateWorkoutSessionInputTrainingGoal = typeof CreateWorkoutSessionInputTrainingGoal[keyof typeof CreateWorkoutSessionInputTrainingGoal];
+
+
+export const CreateWorkoutSessionInputTrainingGoal = {
+  muscle_tone: 'muscle_tone',
+  posture: 'posture',
+  cardio_general: 'cardio_general',
+  weight_loss: 'weight_loss',
+} as const;
+
+/**
+ * @nullable
+ */
+export type CreateWorkoutSessionInputHealthSource = typeof CreateWorkoutSessionInputHealthSource[keyof typeof CreateWorkoutSessionInputHealthSource] | null;
+
+
+export const CreateWorkoutSessionInputHealthSource = {
+  health_connect: 'health_connect',
+  healthkit: 'healthkit',
+} as const;
+
+export interface CreateWorkoutSessionInput {
+  trainingGoal: CreateWorkoutSessionInputTrainingGoal;
+  /** @minimum 0 */
+  durationSeconds: number;
+  isValid: boolean;
+  /** @nullable */
+  healthSource?: CreateWorkoutSessionInputHealthSource;
+}
+
+export interface WorkoutSessionRecord {
+  id: number;
+  createdAt: string;
+}
+
 /**
  * @nullable
  */
@@ -27,31 +62,24 @@ export const PricingStateSubscriptionStatus = {
 } as const;
 
 /**
- * currentLevel is 0-11 (zero-based, data/logic convention). displayLevel (currentLevel + 1, range 1-12) and priceEur are derived for UI display.
+ * currentLevel is 0-10 (zero-based). Level 0 = 250 EUR (≤8 sessions/month), Level 10 = 10 EUR (≥18 sessions/month). displayLevel = currentLevel + 1. Price is recalculated from scratch every month — no cycle counter.
  */
 export interface PricingState {
   userId: string;
   /**
      * @minimum 0
-     * @maximum 11
+     * @maximum 10
      */
   currentLevel: number;
   /**
      * @minimum 1
-     * @maximum 12
+     * @maximum 11
      */
   displayLevel: number;
   priceEur: number;
-  /**
-     * @minimum 0
-     * @maximum 11
-     */
-  cycleMonthCounter: number;
   /** @nullable */
   subscriptionStartedAt: string | null;
   lastMonthCompleted: boolean;
-  /** @nullable */
-  avgReliabilityScoreMonth: number | null;
   /** @nullable */
   subscriptionStatus: PricingStateSubscriptionStatus;
 }
@@ -66,10 +94,8 @@ export interface PricingPortalSession {
 
 export interface PricingCycleResult {
   processedCount: number;
-  advancedCount: number;
-  doubleAdvancedCount: number;
+  improvedCount: number;
   regressedCount: number;
-  resetCount: number;
   unchangedCount: number;
 }
 

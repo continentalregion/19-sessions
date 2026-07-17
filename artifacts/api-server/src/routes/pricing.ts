@@ -60,9 +60,7 @@ async function getOrCreatePricingState(userId: string) {
     userId,
     currentLevel: 0,
     lastMonthCompleted: false,
-    avgReliabilityScoreMonth: null,
     subscriptionStartedAt: new Date(),
-    cycleMonthCounter: 0,
   };
 
   const [created] = await db
@@ -104,12 +102,10 @@ router.get("/pricing/state", requireAuth, async (req, res): Promise<void> => {
       currentLevel: state.currentLevel,
       displayLevel: displayLevel(state.currentLevel),
       priceEur: priceForLevel(state.currentLevel),
-      cycleMonthCounter: state.cycleMonthCounter,
       subscriptionStartedAt: state.subscriptionStartedAt
         ? state.subscriptionStartedAt.toISOString()
         : null,
       lastMonthCompleted: state.lastMonthCompleted,
-      avgReliabilityScoreMonth: state.avgReliabilityScoreMonth,
       subscriptionStatus: subscription?.status ?? null,
     }),
   );
@@ -235,10 +231,8 @@ router.post("/pricing/cycle-all", async (req, res): Promise<void> => {
 
   const states = await db.select().from(pricingStateTable);
 
-  let advancedCount = 0;
-  let doubleAdvancedCount = 0;
+  let improvedCount = 0;
   let regressedCount = 0;
-  let resetCount = 0;
   let unchangedCount = 0;
 
   const stripe = await getUncachableStripeClient();
@@ -257,32 +251,18 @@ router.post("/pricing/cycle-all", async (req, res): Promise<void> => {
       );
 
     const sessionsCompletedMonth = sessions.length;
-    const avgReliabilityScoreMonth =
-      sessions.length > 0
-        ? sessions.reduce((sum, s) => sum + s.reliabilityScore, 0) / sessions.length
-        : null;
 
-    const result = evaluateMonth({
-      currentLevel: state.currentLevel,
-      cycleMonthCounter: state.cycleMonthCounter,
-      sessionsCompletedMonth,
-      avgReliabilityScoreMonth,
-    });
+    const result = evaluateMonth({ sessionsCompletedMonth });
 
-    if (result.transition === "advanced_double") doubleAdvancedCount++;
-    else if (result.transition === "advanced_single") advancedCount++;
-    else if (result.transition === "regressed") regressedCount++;
-    if (result.cycleReset) resetCount++;
-    if (result.nextLevel === state.currentLevel && !result.cycleReset) unchangedCount++;
+    if (result.nextLevel < state.currentLevel) improvedCount++;
+    else if (result.nextLevel > state.currentLevel) regressedCount++;
+    else unchangedCount++;
 
     await db
       .update(pricingStateTable)
       .set({
         currentLevel: result.nextLevel,
-        cycleMonthCounter: result.nextCycleMonthCounter,
         lastMonthCompleted: sessionsCompletedMonth >= 19,
-        avgReliabilityScoreMonth,
-        ...(result.cycleReset ? { subscriptionStartedAt: new Date() } : {}),
       })
       .where(eq(pricingStateTable.userId, state.userId));
 
@@ -319,10 +299,8 @@ router.post("/pricing/cycle-all", async (req, res): Promise<void> => {
   res.json(
     RunPricingCycleResponse.parse({
       processedCount: states.length,
-      advancedCount,
-      doubleAdvancedCount,
+      improvedCount,
       regressedCount,
-      resetCount,
       unchangedCount,
     }),
   );

@@ -8,31 +8,24 @@
 import type { PricingStateSubscriptionStatus } from './pricingStateSubscriptionStatus';
 
 /**
- * currentLevel is 0-11 (zero-based, data/logic convention). displayLevel (currentLevel + 1, range 1-12) and priceEur are derived for UI display.
+ * currentLevel is 0-10 (zero-based). Level 0 = 250 EUR (≤8 sessions/month), Level 10 = 10 EUR (≥18 sessions/month). displayLevel = currentLevel + 1. Price is recalculated from scratch every month — no cycle counter.
  */
 export interface PricingState {
   userId: string;
   /**
      * @minimum 0
-     * @maximum 11
+     * @maximum 10
      */
   currentLevel: number;
   /**
      * @minimum 1
-     * @maximum 12
+     * @maximum 11
      */
   displayLevel: number;
   priceEur: number;
-  /**
-     * @minimum 0
-     * @maximum 11
-     */
-  cycleMonthCounter: number;
   /** @nullable */
   subscriptionStartedAt: Date | null;
   lastMonthCompleted: boolean;
-  /** @nullable */
-  avgReliabilityScoreMonth: number | null;
   /** @nullable */
   subscriptionStatus: PricingStateSubscriptionStatus;
 }

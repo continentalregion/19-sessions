@@ -20,16 +20,18 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CreateWorkoutSessionInput,
   ErrorResponse,
   HealthStatus,
   PricingCheckoutSession,
   PricingCycleResult,
   PricingPortalSession,
-  PricingState
+  PricingState,
+  WorkoutSessionRecord
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
-import type { ErrorType } from '../custom-fetch';
+import type { ErrorType , BodyType } from '../custom-fetch';
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -133,6 +135,78 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
+export const getCreateWorkoutSessionUrl = () => {
+
+
+
+
+  return `/api/sessions`
+}
+
+/**
+ * Saves a completed workout session for the authenticated user. The isValid flag is determined client-side from Health Connect (Android) or HealthKit (iOS) — the server trusts and persists it as-is. userId is derived from the Clerk session, never from the request body.
+ * @summary Save a completed workout session
+ */
+export const createWorkoutSession = async (createWorkoutSessionInput: CreateWorkoutSessionInput, options?: RequestInit): Promise<WorkoutSessionRecord> => {
+
+  return customFetch<WorkoutSessionRecord>(getCreateWorkoutSessionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createWorkoutSessionInput)
+  }
+);}
+
+
+
+
+
+export const getCreateWorkoutSessionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkoutSession>>, TError,{data: BodyType<CreateWorkoutSessionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createWorkoutSession>>, TError,{data: BodyType<CreateWorkoutSessionInput>}, TContext> => {
+
+const mutationKey = ['createWorkoutSession'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createWorkoutSession>>, {data: BodyType<CreateWorkoutSessionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createWorkoutSession(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateWorkoutSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createWorkoutSession>>>
+    export type CreateWorkoutSessionMutationBody = BodyType<CreateWorkoutSessionInput>
+    export type CreateWorkoutSessionMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Save a completed workout session
+ */
+export const useCreateWorkoutSession = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkoutSession>>, TError,{data: BodyType<CreateWorkoutSessionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createWorkoutSession>>,
+        TError,
+        {data: BodyType<CreateWorkoutSessionInput>},
+        TContext
+      > => {
+      return useMutation(getCreateWorkoutSessionMutationOptions(options));
+    }
+
 export const getGetPricingStateUrl = () => {
 
 
@@ -142,7 +216,7 @@ export const getGetPricingStateUrl = () => {
 }
 
 /**
- * Returns the current pricing level and monthly progress for the authenticated caller (identified from the Clerk session, never from a client-supplied identifier). Creates a default Level 1 (currentLevel 0) row if none exists yet.
+ * Returns the current pricing level and monthly progress for the authenticated caller (identified from the Clerk session, never from a client-supplied identifier). Creates a default Level 1 (currentLevel 0, 250 EUR) row if none exists yet.
  * @summary Get pricing state for the authenticated user
  */
 export const getPricingState = async ( options?: RequestInit): Promise<PricingState> => {
@@ -364,8 +438,8 @@ export const getRunPricingCycleUrl = () => {
 }
 
 /**
- * Cron-only endpoint, not called by the mobile app. Must be invoked once a month by a scheduled job (e.g. Replit Scheduled Deployment) with the shared secret header. Evaluates each user's previous calendar month (sessions completed, average reliability score), applies the level transition, updates the 13th-month reset, and syncs the new price to the user's active Stripe subscription.
- * @summary Internal — run the monthly level advance/regress evaluation for all users
+ * Cron-only endpoint, not called by the mobile app. Must be invoked once a month by a scheduled job (e.g. Replit Scheduled Deployment) with the shared secret header. Evaluates each user's previous calendar month (valid session count only — no reliability score), sets the new price via direct lookup, and syncs it to the user's active Stripe subscription. No cycle counter or gradual level transitions — each month is independent.
+ * @summary Internal — run the monthly price recalculation for all users
  */
 export const runPricingCycle = async ( options?: RequestInit): Promise<PricingCycleResult> => {
 
@@ -414,7 +488,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RunPricingCycleMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Internal — run the monthly level advance/regress evaluation for all users
+ * @summary Internal — run the monthly price recalculation for all users
  */
 export const useRunPricingCycle = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runPricingCycle>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
