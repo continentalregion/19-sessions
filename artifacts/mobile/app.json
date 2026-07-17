@@ -23,7 +23,9 @@
     },
     "android": {
       "package": "com.trantads.sessions19",
-      "permissions": ["ACTIVITY_RECOGNITION"]
+      "permissions": [
+        "ACTIVITY_RECOGNITION"
+      ]
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -61,6 +63,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4fb61749-14df-4248-b7ed-25f700b2b982"
+      }
+    },
+    "owner": "trantads-work"
   }
 }
