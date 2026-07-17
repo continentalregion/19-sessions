@@ -1,0 +1,39 @@
+FASE 1 — PLAN MODE (solo diagnosi, nessuna modifica)
+
+Non usare subagent né testing monitor (costo token).
+
+Analizza il repo continentalregion/19-sessions e identifica:
+1. Tutti i file/moduli legati a: vision-camera, frame processor, react-native-fast-tflite, MoveNet, pose estimation, accelerometro, scoring pesato (camera/accelerometro/wearable)
+2. Tutti i punti dove questi moduli sono richiamati/importati altrove nell'app (schermate allenamento, navigazione, stato sessione)
+3. Lo stato attuale di app.json (name, slug, bundleIdentifier)
+4. Se esiste già una dipendenza Health Connect / HealthKit installata o configurata
+
+Produci un elenco chiaro di file da rimuovere, file da modificare, e dipendenze package.json da rimuovere/aggiungere. Non modificare nulla in questa fase.
+
+---
+
+FASE 2 — BUILD MODE (dopo mia conferma sul piano)
+
+Non usare subagent né testing monitor (costo token).
+
+1. RIMOZIONE SCORING/CAMERA
+   - Elimina completamente i moduli di pose estimation, vision-camera, frame processor, MoveNet/react-native-fast-tflite, accelerometro, e la logica di scoring pesato
+   - Rimuovi le relative dipendenze da package.json
+   - Aggiorna le schermate che richiamavano questi moduli
+
+2. VALIDAZIONE VIA HEALTH APP
+   - Integra react-native-health-connect (Android) e react-native-health (iOS) per leggere i workout registrati dallo smartwatch
+   - Una sessione è valida se Health Connect/HealthKit riporta un workout nella finestra temporale attesa (definisci soglia minima durata, es. 15 min, come placeholder — confermeremo insieme il valore esatto)
+   - Nessun'altra fonte di validazione ammessa
+
+3. PRICING — STRIPE STATE MACHINE
+   - Implementa la curva: 250€ prezzo pieno sotto 8 sessioni/mese; da 8 a 19 sessioni curva esponenziale fino a floor 10€ (tabella: 8=250, 9=139, 10=79, 11=47, 12=30, 13=21, 14=16, 15=13, 16=12, 17=11, 18=10, 19+=10)
+   - Retrocessione: se il mese successivo l'utente scende sotto 8 sessioni valide, reset a 250€ (nessuna gradualità)
+   - Applica il prezzo del mese N+1 in base alle sessioni valide completate nel mese N
+
+4. RENAME APP
+   - app.json: "name" → "19 Sessions BOSU"
+   - NON toccare slug né bundleIdentifier/package
+   - Prepara per nuovo build EAS (non lanciarlo, serve azione manuale mia)
+
+Al termine, riporta solo modifiche effettivamente verificate riga per riga nei file — non dichiarare nulla "fatto" senza che io possa controllare il diff su GitHub.
