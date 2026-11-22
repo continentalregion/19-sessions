@@ -231,3 +231,38 @@ Testo da mostrare all'utente prima della sottoscrizione (tradotto nelle 4 lingue
 - Integrazione wearable avanzata (frequenza cardiaca come bonus score).
 - Anti-cheat Play Integrity API (Android) / DeviceCheck (iOS).
 - Analisi statistica server-side avanzata su pattern anomali.
+
+---
+
+## Aggiornamento novembre 2026 — Motore cashback annuale (branch `feat/annual-cashback-engine`)
+
+Nuovo modello (pivot): quota annuale pagata in anticipo → commissione piattaforma 10% →
+restante 90% restituito in 12 rate mensili, **ciascuna solo se nel mese di contratto
+risultano ≥ 19 sessioni valide**. Il vecchio lookup mensile 250→10 € (sezione 6) resta nel
+codice ma non è collegato al nuovo flusso.
+
+### Implementato (con test: `pnpm --filter @workspace/api-server run test`, 18/18)
+- `src/lib/cashbackEngine.ts` — logica pura in centesimi interi: `buildSchedule` (commissione +
+  12 rate la cui somma è esatta al centesimo), mesi di contratto da anniversario (UTC, clamp
+  fine mese), `closedMonths`, `evaluateMonth` (soglia sessioni + minimo opzionale di sessioni
+  di forza).
+- `src/lib/sessionValidator.ts` — validazione **server-side** di workout grezzi
+  HealthKit/Health Connect: durata ricalcolata da start/end (≥ 25 min), no inserimenti
+  manuali, solo da wearable, FC media presente e plausibile (≥ 90 bpm configurabile), activity
+  type in allowlist, no duplicati, no sovrapposizioni, max 1 sessione/giorno (giorno nel fuso
+  Europe/Rome). Sostituisce la fiducia nel flag `isValid` del client (sezione 4).
+- DB: `health_workouts` (grezzi + verdetto + motivi di scarto), `annual_contracts`,
+  `cashback_ledger` (unique contratto+rata → ciclo idempotente).
+- API: `POST /api/workouts/sync` (auth Clerk, batch ≤ 100), `GET /api/contract/status`,
+  `POST /api/cashback/cycle` (cron, `x-cron-secret` confrontato a tempo costante).
+  Il ciclo scrive righe `payable`/`forfeited`; **non muove denaro**.
+
+### Da fare
+- Creazione contratto + incasso quota (Stripe one-off o partner EMI) → `status=active`, `start_at`.
+- Payout delle righe `payable` tramite partner EMI/IMEL (le card refund Stripe valgono ~180 giorni).
+- App mobile: inviare workout grezzi a `/workouts/sync` (HealthKit: `HKMetadataKeyWasUserEntered`,
+  FC media; ora `health.ios.ts` calcola `isValid` in locale con soglia 15 min — da sostituire).
+- Sito web abbonato (dashboard progresso e rimborsi).
+- Decisione legale aperta: destinazione delle rate `forfeited` e qualificazione del prodotto
+  (cashback condizionato vs raccolta del risparmio, art. 11 TUB) — validare con un avvocato.
+- Migrazione DB: `pnpm --filter @workspace/db run push-force` (non eseguita da qui).
