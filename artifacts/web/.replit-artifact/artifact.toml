@@ -1,5 +1,5 @@
 kind = "web"
-previewPath = "/"
+previewPath = "/site/"
 title = "19 Sessions Web"
 version = "1.0.0"
 id = "19sessions-web-0001"
@@ -7,10 +7,11 @@ id = "19sessions-web-0001"
 [[services]]
 localPort = 5173
 name = "Web"
-paths = ["/"]
+paths = ["/site"]
 
 [services.env]
 PORT = "5173"
+BASE_PATH = "/site"
 
 [services.development]
 run = "pnpm --filter @workspace/web run dev"
@@ -28,3 +29,4 @@ args = ["pnpm", "--filter", "@workspace/web", "run", "preview"]
 
 [services.production.run.env]
 PORT = "5173"
+BASE_PATH = "/site"

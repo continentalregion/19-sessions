@@ -142,7 +142,7 @@ function webBaseUrl(): string | null {
   const explicit = process.env["WEB_BASE_URL"];
   if (explicit) return explicit.replace(/\/$/, "");
   const replit = process.env["REPLIT_DOMAINS"]?.split(",")[0];
-  return replit ? `https://${replit}` : null;
+  return replit ? `https://${replit}/site` : null;
 }
 
 const CheckoutBody = z.object({ acceptTerms: z.literal(true) });

@@ -278,7 +278,7 @@ corrispettivo del servizio (clausola mostrata e accettata esplicitamente prima d
   (rilegge la sessione da Stripe, attiva solo se pagata dallo stesso utente e con importo = quota),
   `GET /api/admin/summary` (header `x-cron-secret`: quote incassate, commissioni, rate trattenute,
   rate da pagare). Il webhook Stripe attiva il contratto anche se l'utente non torna sul sito.
-- Sito: `artifacts/web` (Vite + React + `@clerk/react`): login, offerta con condizioni, dashboard
+- Sito: `artifacts/web`, servito su `/site` (l'app Expo occupa `/`) (Vite + React + `@clerk/react`): login, offerta con condizioni, dashboard
   del mese e delle 12 rate. Env: `VITE_CLERK_PUBLISHABLE_KEY`, `WEB_BASE_URL` (opzionale su Replit),
   `ANNUAL_FEE_CENTS` (default 100000).
 - Su Replit: pull del branch, `pnpm install`, `pnpm --filter @workspace/db run push-force`,
