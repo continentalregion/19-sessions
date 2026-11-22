@@ -77,6 +77,8 @@ onlyBuiltDependencies:
 overrides:
   # Replit package firewall returns 403 for proxy-addr@2.0.7; 2.0.8 is the current release
   proxy-addr: 2.0.8
+  # critical advisory (>=1.8.4 <1.11.0); blocked by the Replit package firewall
+  shell-quote: 1.12.0
   # replit uses linux-x64 only, we can exclude all other platforms
   "esbuild>@esbuild/darwin-arm64": "-"
   "esbuild>@esbuild/darwin-x64": "-"
