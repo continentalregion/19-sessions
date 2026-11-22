@@ -266,3 +266,22 @@ codice ma non è collegato al nuovo flusso.
 - Decisione legale aperta: destinazione delle rate `forfeited` e qualificazione del prodotto
   (cashback condizionato vs raccolta del risparmio, art. 11 TUB) — validare con un avvocato.
 - Migrazione DB: `pnpm --filter @workspace/db run push-force` (non eseguita da qui).
+
+### Aggiornamento 22 nov 2026 — checkout, sito web, regola rate non maturate
+
+**Decisioni:** sito e API su Replit; le rate non maturate restano a TRANTADS LTD come
+corrispettivo del servizio (clausola mostrata e accettata esplicitamente prima del pagamento,
+`termsAcceptedAt` + `termsVersion` salvati sul contratto).
+
+- API: `GET /api/contract/offer` (pubblica), `POST /api/contract/checkout` (richiede
+  `acceptTerms: true`, crea contratto `pending_payment` + Stripe Checkout), `POST /api/contract/confirm`
+  (rilegge la sessione da Stripe, attiva solo se pagata dallo stesso utente e con importo = quota),
+  `GET /api/admin/summary` (header `x-cron-secret`: quote incassate, commissioni, rate trattenute,
+  rate da pagare). Il webhook Stripe attiva il contratto anche se l'utente non torna sul sito.
+- Sito: `artifacts/web` (Vite + React + `@clerk/react`): login, offerta con condizioni, dashboard
+  del mese e delle 12 rate. Env: `VITE_CLERK_PUBLISHABLE_KEY`, `WEB_BASE_URL` (opzionale su Replit),
+  `ANNUAL_FEE_CENTS` (default 100000).
+- Su Replit: pull del branch, `pnpm install`, `pnpm --filter @workspace/db run push-force`,
+  impostare i Secrets (`CRON_SECRET` nuovo, `VITE_CLERK_PUBLISHABLE_KEY`), riavviare i workflow.
+- Ancora aperti: payout delle rate `payable` (partner EMI), diritto di recesso 14 giorni,
+  testo contrattuale definitivo validato da un legale.

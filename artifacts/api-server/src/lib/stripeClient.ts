@@ -81,3 +81,17 @@ export async function getStripeSync(): Promise<StripeSync> {
     stripeWebhookSecret: webhookSecret ?? "",
   });
 }
+
+/**
+ * Verifies the signature and returns the parsed Stripe event, or null when no
+ * webhook secret is configured (the browser-side confirm endpoint then remains
+ * the activation path).
+ */
+export async function constructStripeEvent(
+  payload: Buffer,
+  signature: string,
+): Promise<Stripe.Event | null> {
+  const { secretKey, webhookSecret } = await getStripeCredentials();
+  if (!webhookSecret) return null;
+  return new Stripe(secretKey).webhooks.constructEvent(payload, signature, webhookSecret);
+}

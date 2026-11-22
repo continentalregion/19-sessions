@@ -1,0 +1,30 @@
+kind = "web"
+previewPath = "/"
+title = "19 Sessions Web"
+version = "1.0.0"
+id = "19sessions-web-0001"
+
+[[services]]
+localPort = 5173
+name = "Web"
+paths = ["/"]
+
+[services.env]
+PORT = "5173"
+
+[services.development]
+run = "pnpm --filter @workspace/web run dev"
+
+[services.production]
+
+[services.production.build]
+args = ["pnpm", "--filter", "@workspace/web", "run", "build"]
+
+[services.production.build.env]
+NODE_ENV = "production"
+
+[services.production.run]
+args = ["pnpm", "--filter", "@workspace/web", "run", "preview"]
+
+[services.production.run.env]
+PORT = "5173"

@@ -18,6 +18,9 @@ export const annualContractsTable = pgTable(
     /** Set when payment is confirmed; anchors the 12 anniversary months. */
     startAt: timestamp("start_at", { withTimezone: true }),
     paymentRef: text("payment_ref"),
+    /** Explicit consent to the contract terms (incl. rule for non-earned installments). */
+    termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+    termsVersion: text("terms_version"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("annual_contracts_user_idx").on(t.userId)],
